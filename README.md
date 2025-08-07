@@ -42,8 +42,6 @@ Clean, modern Material Design interface with smooth navigation via bottom tabs.
 |------|--------|------------|
 | ![Home](screenshots/home.png) | ![History](screenshots/history.png) | ![Stats](screenshots/stats.png) |
 
-> *Note: Screenshots to be added. Replace paths with actual images in `/screenshots` folder.*
-
 ---
 
 ## 🚀 Getting Started
@@ -57,5 +55,5 @@ Clean, modern Material Design interface with smooth navigation via bottom tabs.
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/spendwise.git 
-cd spendwise
+git clone https://github.com/allwin-antony/Expense_tracker.git 
+cd Expense_tracker
