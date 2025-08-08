@@ -16,7 +16,7 @@ windows/
 ios/
 web/
 macos/
-
+# firebase-config-host
 # IntelliJ related
 *.iml
 *.ipr

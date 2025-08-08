@@ -1,0 +1,298 @@
+[
+  {
+    "androidPackageName": "com.phonepe.app",
+    "appName": "PhonePe"
+  },
+  {
+    "androidPackageName": "com.google.android.apps.nbu.paisa.user",
+    "appName": "Google Pay"
+  },
+  {
+    "androidPackageName": "net.one97.paytm",
+    "appName": "Paytm"
+  },
+  {
+    "androidPackageName": "com.sbi.upi",
+    "appName": "SBI Pay"
+  },
+  {
+    "androidPackageName": "com.csam.icici.bank.imobile",
+    "appName": "iMobile"
+  },
+  {
+    "androidPackageName": "in.org.npci.upiapp",
+    "appName": "BHIM"
+  },
+  {
+    "androidPackageName": "com.mipay.in.wallet",
+    "appName": "Mi Pay"
+  },
+  {
+    "androidPackageName": "in.amazon.mShop.android.shopping",
+    "appName": "Amazon Pay"
+  },
+  {
+    "androidPackageName": "com.truecaller",
+    "appName": "Truecaller"
+  },
+  {
+    "androidPackageName": "com.myairtelapp",
+    "appName": "Airtel"
+  },
+  {
+    "androidPackageName": "com.upi.axispay",
+    "appName": "Axis Pay"
+  },
+  {
+    "androidPackageName": "com.lcode.allahabadupi",
+    "appName": "ALLBANK"
+  },
+  {
+    "androidPackageName": "com.olive.andhra.upi",
+    "appName": "Andhra UPI"
+  },
+  {
+    "androidPackageName": "com.aubank.aupay.bhimupi",
+    "appName": "AUPay"
+  },
+  {
+    "androidPackageName": "com.fisglobal.bandhanupi.app",
+    "appName": "Bandhan UPI"
+  },
+  {
+    "androidPackageName": "com.bankofbaroda.upi",
+    "appName": "BOB Pay"
+  },
+  {
+    "androidPackageName": "com.infra.boiupi",
+    "appName": "BOI UPI"
+  },
+  {
+    "androidPackageName": "com.infrasofttech.centralbankupi",
+    "appName": "Cent UPI"
+  },
+  {
+    "androidPackageName": "com.lcode.corpupi",
+    "appName": "CORP UPI"
+  },
+  {
+    "androidPackageName": "com.lcode.csbupi",
+    "appName": "CSB UPI"
+  },
+  {
+    "androidPackageName": "com.cub.wallet.gui",
+    "appName": "CUB UPI"
+  },
+  {
+    "androidPackageName": "com.olive.dcb.upi",
+    "appName": "DCB UPI"
+  },
+  {
+    "androidPackageName": "com.lcode.dlbupi",
+    "appName": "DLB UPI"
+  },
+  {
+    "androidPackageName": "com.equitasbank.upi",
+    "appName": "Equitas UPI"
+  },
+  {
+    "androidPackageName": "com.fss.idfcpsp",
+    "appName": "IDFC First Bank UPI"
+  },
+  {
+    "androidPackageName": "com.infrasofttech.indianbankupi",
+    "appName": "Indian Bank UPI"
+  },
+  {
+    "androidPackageName": "com.mgs.induspsp",
+    "appName": "IndusPay UPI"
+  },
+  {
+    "androidPackageName": "com.euronet.iobupi",
+    "appName": "IOB UPI"
+  },
+  {
+    "androidPackageName": "com.finacus.jetpay",
+    "appName": "JetPay"
+  },
+  {
+    "androidPackageName": "com.fss.jnkpsp",
+    "appName": "JK Bank UPI"
+  },
+  {
+    "androidPackageName": "com.lcode.smartz",
+    "appName": "KBL UPI"
+  },
+  {
+    "androidPackageName": "com.mycompany.kvb",
+    "appName": "KVB Upay"
+  },
+  {
+    "androidPackageName": "com.upi.federalbank.org.lotza",
+    "appName": "LOTZA UPI"
+  },
+  {
+    "androidPackageName": "com.lvbank.upaay",
+    "appName": "LVB Upaay"
+  },
+  {
+    "androidPackageName": "com.mgs.obcbank",
+    "appName": "Oriental Pay"
+  },
+  {
+    "androidPackageName": "com.idbibank.paywiz",
+    "appName": "Paywiz V2"
+  },
+  {
+    "androidPackageName": "com.fss.pnbpsp",
+    "appName": "PNB"
+  },
+  {
+    "androidPackageName": "com.mobileware.upipsb",
+    "appName": "PSB"
+  },
+  {
+    "androidPackageName": "com.rblbank.upi",
+    "appName": "RBL Pay"
+  },
+  {
+    "androidPackageName": "com.fisglobal.syndicateupi.app",
+    "appName": "SyndUPI"
+  },
+  {
+    "androidPackageName": "com.lcode.ucoupi",
+    "appName": "UCO UPI"
+  },
+  {
+    "androidPackageName": "com.fss.unbipsp",
+    "appName": "United UPI Pay"
+  },
+  {
+    "androidPackageName": "com.fss.vijayapsp",
+    "appName": "Vijaya UPI"
+  },
+  {
+    "androidPackageName": "com.YesBank",
+    "appName": "Yes Pay"
+  },
+  {
+    "androidPackageName": "com.finopaytech.bpayfino",
+    "appName": "BPay"
+  },
+  {
+    "androidPackageName": "money.bullet",
+    "appName": "Bullet"
+  },
+  {
+    "androidPackageName": "com.canarabank.mobility",
+    "appName": "Canara Bank App"
+  },
+  {
+    "androidPackageName": "in.cointab.app",
+    "appName": "Cointab"
+  },
+  {
+    "androidPackageName": "com.dreamplug.androidapp",
+    "appName": "CRED"
+  },
+  {
+    "androidPackageName": "com.cub.plus.gui",
+    "appName": "CUB mBank Plus"
+  },
+  {
+    "androidPackageName": "com.fss.ippbpsp",
+    "appName": "DakPay"
+  },
+  {
+    "androidPackageName": "com.dbs.in.digitalbank",
+    "appName": "Digibank"
+  },
+  {
+    "androidPackageName": "com.fampay.in",
+    "appName": "FamPay"
+  },
+  {
+    "androidPackageName": "com.freecharge.android",
+    "appName": "Freecharge"
+  },
+  {
+    "androidPackageName": "com.snapwork.hdfc",
+    "appName": "HDFC"
+  },
+  {
+    "androidPackageName": "com.mgs.hsbcupi",
+    "appName": "HSBC Simply Pay"
+  },
+  {
+    "androidPackageName": "com.khaalijeb.inkdrops",
+    "appName": "KhaaliJeb"
+  },
+  {
+    "androidPackageName": "com.citrus.citruspay",
+    "appName": "LazyPay"
+  },
+  {
+    "androidPackageName": "com.infrasofttech.mahaupi",
+    "appName": "MahaUPI"
+  },
+  {
+    "androidPackageName": "com.mobikwik_new",
+    "appName": "Mobikwik"
+  },
+  {
+    "androidPackageName": "com.microlucid.mudrapay.android",
+    "appName": "MudraPay"
+  },
+  {
+    "androidPackageName": "com.jio.myjio",
+    "appName": "MyJio"
+  },
+  {
+    "androidPackageName": "com.omegaon_internet_pvt_ltd",
+    "appName": "Omega Pay"
+  },
+  {
+    "androidPackageName": "com.enstage.wibmo.hdfc",
+    "appName": "PayZapp"
+  },
+  {
+    "androidPackageName": "com.rblbank.mobank",
+    "appName": "RBL MoBank"
+  },
+  {
+    "androidPackageName": "com.realmepay.payments",
+    "appName": "Realme PaySa"
+  },
+  {
+    "androidPackageName": "com.SIBMobile",
+    "appName": "SIB Mirror+"
+  },
+  {
+    "androidPackageName": "com.finacus.tranzapp",
+    "appName": "Tranzapp"
+  },
+  {
+    "androidPackageName": "com.ultracash.payment.customer",
+    "appName": "UltraCash"
+  },
+  {
+    "androidPackageName": "com.infrasoft.uboi",
+    "appName": "U-Mobile"
+  },
+  {
+    "androidPackageName": "com.whatsapp",
+    "appName": "WhatsApp"
+  },
+  {
+    "androidPackageName": "com.atomyes",
+    "appName": "Yes Mobile"
+  },
+  {
+    "androidPackageName": "com.udma.yuvapay.app",
+    "appName": "Yuva Pay"
+  },
+  {
+    "androidPackageName": "money.super.payments",
+    "appName": "super.money"
+  }
+]

@@ -1,309 +1,135 @@
 import 'dart:convert';
-
-import 'package:installed_apps/installed_apps.dart';
 import 'package:external_app_launcher/external_app_launcher.dart';
+import 'package:sqflite/sqflite.dart';
+import 'package:installed_apps/installed_apps.dart';
+import '../models/upi_app.dart';
 import '../types/upi_applications.dart';
+import 'database_service.dart';
+import 'config_fetch_service.dart';
 
-class UpiAppsService {
-  /// Get all UPI applications as a formatted list
-  static List<UpiApplication> getAllUpiApplications() {
-    return [
-      UpiApplication.googlePay,
-      UpiApplication.phonePe,
-      UpiApplication.paytm,
-      UpiApplication.sbiPay,
-      UpiApplication.iMobile,
-      UpiApplication.bhim,
-      UpiApplication.miPay,
-      UpiApplication.amazonPay,
-      UpiApplication.trueCaller,
-      UpiApplication.airtel,
-      UpiApplication.axisPay,
-      // Additional common UPI apps
-      const UpiApplication(
-        androidPackageName: 'com.lcode.allahabadupi',
-        appName: 'ALLBANK',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.olive.andhra.upi',
-        appName: 'Andhra UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.aubank.aupay.bhimupi',
-        appName: 'AUPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fisglobal.bandhanupi.app',
-        appName: 'Bandhan UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.bankofbaroda.upi',
-        appName: 'BOB Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.infra.boiupi',
-        appName: 'BOI UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.infrasofttech.centralbankupi',
-        appName: 'Cent UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.lcode.corpupi',
-        appName: 'CORP UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.lcode.csbupi',
-        appName: 'CSB UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.cub.wallet.gui',
-        appName: 'CUB UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.olive.dcb.upi',
-        appName: 'DCB UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.lcode.dlbupi',
-        appName: 'DLB UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.equitasbank.upi',
-        appName: 'Equitas UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fss.idfcpsp',
-        appName: 'IDFC First Bank UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.infrasofttech.indianbankupi',
-        appName: 'Indian Bank UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.mgs.induspsp',
-        appName: 'IndusPay UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.euronet.iobupi',
-        appName: 'IOB UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.finacus.jetpay',
-        appName: 'JetPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fss.jnkpsp',
-        appName: 'JK Bank UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.lcode.smartz',
-        appName: 'KBL UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.mycompany.kvb',
-        appName: 'KVB Upay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.upi.federalbank.org.lotza',
-        appName: 'LOTZA UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.lvbank.upaay',
-        appName: 'LVB Upaay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.mgs.obcbank',
-        appName: 'Oriental Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.idbibank.paywiz',
-        appName: 'Paywiz V2',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fss.pnbpsp',
-        appName: 'PNB',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.mobileware.upipsb',
-        appName: 'PSB',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.rblbank.upi',
-        appName: 'RBL Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fisglobal.syndicateupi.app',
-        appName: 'SyndUPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.lcode.ucoupi',
-        appName: 'UCO UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fss.unbipsp',
-        appName: 'United UPI Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fss.vijayapsp',
-        appName: 'Vijaya UPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.YesBank',
-        appName: 'Yes Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.finopaytech.bpayfino',
-        appName: 'BPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'money.bullet',
-        appName: 'Bullet',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.canarabank.mobility',
-        appName: 'Canara Bank App',
-      ),
-      const UpiApplication(
-        androidPackageName: 'in.cointab.app',
-        appName: 'Cointab',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.dreamplug.androidapp',
-        appName: 'CRED',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.cub.plus.gui',
-        appName: 'CUB mBank Plus',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fss.ippbpsp',
-        appName: 'DakPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.dbs.in.digitalbank',
-        appName: 'Digibank',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.fampay.in',
-        appName: 'FamPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.freecharge.android',
-        appName: 'Freecharge',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.snapwork.hdfc',
-        appName: 'HDFC',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.mgs.hsbcupi',
-        appName: 'HSBC Simply Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.khaalijeb.inkdrops',
-        appName: 'KhaaliJeb',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.citrus.citruspay',
-        appName: 'LazyPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.infrasofttech.mahaupi',
-        appName: 'MahaUPI',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.mobikwik_new',
-        appName: 'Mobikwik',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.microlucid.mudrapay.android',
-        appName: 'MudraPay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.jio.myjio',
-        appName: 'MyJio',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.omegaon_internet_pvt_ltd',
-        appName: 'Omega Pay',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.enstage.wibmo.hdfc',
-        appName: 'PayZapp',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.rblbank.mobank',
-        appName: 'RBL MoBank',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.realmepay.payments',
-        appName: 'Realme PaySa',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.SIBMobile',
-        appName: 'SIB Mirror+',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.finacus.tranzapp',
-        appName: 'Tranzapp',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.ultracash.payment.customer',
-        appName: 'UltraCash',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.infrasoft.uboi',
-        appName: 'U-Mobile',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.whatsapp',
-        appName: 'WhatsApp',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.atomyes',
-        appName: 'Yes Mobile',
-      ),
-      const UpiApplication(
-        androidPackageName: 'com.udma.yuvapay.app',
-        appName: 'Yuva Pay',
-      ),
-      const UpiApplication(androidPackageName: 'money.super.payments', appName: 'super.money')
-    ];
+class UPIAppsService {
+  static final UPIAppsService instance = UPIAppsService._constructor();
+  UPIAppsService._constructor();
+
+  // Table name for UPI apps
+  static const String _tableName = 'upi_apps';
+
+  // Initialize UPI apps table
+  Future<void> _initUPITable(Database db) async {
+    await db.execute('''
+      CREATE TABLE IF NOT EXISTS $_tableName(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        androidPackageName TEXT NOT NULL UNIQUE,
+        appName TEXT NOT NULL
+      )
+    ''');
   }
 
-  /// Check which UPI apps are installed on the device
+  // Fetch and save UPI apps on startup
+  Future<void> fetchAndSaveUPIApps() async {
+    try {
+      final db = await DatabaseService.instance.database;
+      await _initUPITable(db);
+
+      final upiApps = await ConfigFetchService.fetchUPIApps();
+
+      if (upiApps.isNotEmpty) {
+        await _saveUPIAppsToDatabase(upiApps);
+        print('Successfully saved ${upiApps.length} UPI apps to database');
+      }
+    } catch (e) {
+      print('Error fetching/saving UPI apps: $e');
+      // Ignore error as per requirement
+    }
+  }
+
+  // Save UPI apps to database
+  Future<void> _saveUPIAppsToDatabase(List<dynamic> upiApps) async {
+    final db = await DatabaseService.instance.database;
+
+    // Clear existing data
+    await db.delete(_tableName);
+    // Insert new data
+    for (final app in upiApps) {
+      final upiApp = UPIApp.fromJson(app);
+      await db.insert(
+        _tableName,
+        upiApp.toMap(),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+  }
+
+  // Get all UPI apps from database
+  Future<List<UPIApp>> getAllUPIApps() async {
+    try {
+      final db = await DatabaseService.instance.database;
+      final data = await db.query(_tableName);
+      return data.map((e) => UPIApp.fromMap(e)).toList();
+    } catch (e) {
+      print('Error getting UPI apps from database: $e');
+      return [];
+    }
+  }
+
+  // Clear UPI apps table
+  Future<void> clearUPIApps() async {
+    try {
+      final db = await DatabaseService.instance.database;
+      await db.delete(_tableName);
+    } catch (e) {
+      print('Error clearing UPI apps: $e');
+    }
+  }
+
+  // Get installed UPI apps using installed_apps package
   static Future<List<UpiApplication>> getInstalledUpiApps() async {
     try {
-      final installedApps = await InstalledApps.getInstalledApps(true);
-      final upiApps = getAllUpiApplications();
+      // Get all installed apps
+      final installedApps = await InstalledApps.getInstalledApps(true, true);
 
-      final installedUpiApps = <UpiApplication>[];
+      // Get all UPI apps from our database
+      final allUpiApps = await UPIAppsService.instance.getAllUPIApps();
 
-      for (final app in installedApps) {
-        final packageName = app.packageName;
-        final matchingApp = upiApps.firstWhere(
-          (upiApp) => upiApp.androidPackageName == packageName,
-          orElse: () =>
-              const UpiApplication(androidPackageName: '', appName: ''),
-        );
+      // Filter to get only installed UPI apps
+      // final installedUpiApps = allUpiApps
+      //     .where((upiApp) {
+      //       return installedApps.any(
+      //         (installedApp) =>
+      //             installedApp.packageName == upiApp.androidPackageName,
+      //       );
+      //     })
+      //     .map((upiApp) {
+      //       return UpiApplication(
+      //         androidPackageName: upiApp.androidPackageName,
+      //         appName: upiApp.appName,
+      //       );
+      //     })
+      //     .toList();
 
-        if (matchingApp.androidPackageName.isNotEmpty) {
-          installedUpiApps.add(
-            UpiApplication(
-              androidPackageName: matchingApp.androidPackageName,
-              iosBundleId: matchingApp.iosBundleId,
-              appName: matchingApp.appName,
-              discoveryCustomScheme: matchingApp.discoveryCustomScheme,
-              iconBase64: app.icon != null ? base64Encode(app.icon!) : null,
-            ),
-          );
-        }
+      final installedUpiApps = installedApps
+          .where((allApp) {
+            print("${allApp.name} ${allApp.packageName}");
+            return allUpiApps.any((upiApp) {
+              return upiApp.androidPackageName == allApp.packageName;
+            });
+          })
+          .map((allApp) {
+            // Convert icon (Uint8List?) to base64 String
+            String? iconBase64;
+            if (allApp.icon != null) {
+              iconBase64 = base64Encode(allApp.icon!);
             }
-
+            return UpiApplication(
+              androidPackageName: allApp.packageName,
+              appName: allApp.name,
+              iconBase64: iconBase64,
+            );
+          })
+          .toList();
       return installedUpiApps;
     } catch (e) {
-      // print('Error getting installed UPI apps: $e');
+      print('Error getting installed UPI apps: $e');
       return [];
     }
   }

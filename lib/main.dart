@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/database_service.dart';
+import 'services/upi_apps_service.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
@@ -8,6 +9,9 @@ void main() async {
 
   // Initialize database
   await DatabaseService.instance.database;
+
+  // Initialize UPI apps data on startup
+  await UPIAppsService.instance.fetchAndSaveUPIApps();
 
   runApp(const BudgetTrackerApp());
 }
