@@ -41,7 +41,7 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
   Future<void> _loadUpiApps() async {
     setState(() => _isLoadingApps = true);
     try {
-      final apps = UpiAppsService.getInstalledUpiApps();
+      final apps = UPIAppsService.getInstalledUpiApps();
       setState(() {
         _upiApps = apps;
         _isLoadingApps = false;
@@ -133,7 +133,7 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
                         title: Text(app.appName),
                         onTap: () {
                           Navigator.pop(context);
-                          UpiAppsService.launchUpiApp(app);
+                          UPIAppsService.launchUpiApp(app);
                           _showManualConfirmation();
                         },
                       );
