@@ -6,7 +6,7 @@
 
 **SpendWise** is a simple, intuitive budget tracking app built with **Flutter** that helps you record expenses, view payment history, track monthly spending, and initiate UPI payments — all while keeping your data private and secure on your device.
 
-> No backend. No ads. No internet required. Just smart, local expense tracking.
+> No ads. No backend. Just smart and private, local expense tracking.
 
 ---
 
@@ -29,7 +29,7 @@ Visualize your spending with charts and summaries:
 Browse all your past transactions with full filtering by month and category.
 
 ✅ **Offline-First & Secure**  
-All data is stored locally using **Hive**, so your financial info never leaves your phone.
+All data is stored locally using **sqflite**, so your financial info never leaves your phone.
 
 ✅ **Beautiful UI with Dark Mode**  
 Clean, modern Material Design interface with smooth navigation via bottom tabs.
