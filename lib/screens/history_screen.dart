@@ -38,7 +38,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       final payments = await DatabaseService.instance.getAllPayments();
       setState(() {
         _payments = payments;
-        _filteredPayments = payments;
+        // Re-apply current filters after loading
+        _filterPayments();
         _isLoading = false;
       });
     } catch (e) {
