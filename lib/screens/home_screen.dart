@@ -1,3 +1,4 @@
+import 'package:expense_tracker/screens/history_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/payment.dart';
@@ -110,8 +111,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               'This Month ($currentMonth)',
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha:
-                                  0.7,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.7,
                                 ),
                               ),
                             ),
@@ -127,8 +128,8 @@ class _HomeScreenState extends State<HomeScreen> {
                             Text(
                               'Total Spent',
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(alpha:
-                                  0.6,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.6,
                                 ),
                               ),
                             ),
@@ -184,6 +185,11 @@ class _HomeScreenState extends State<HomeScreen> {
                           TextButton(
                             onPressed: () {
                               // Navigate to history screen
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => HistoryScreen(),
+                                ),
+                              );
                               DefaultTabController.of(context).animateTo(1);
                             },
                             child: const Text('View All'),
@@ -202,24 +208,26 @@ class _HomeScreenState extends State<HomeScreen> {
                               Icon(
                                 Icons.receipt_long_outlined,
                                 size: 64,
-                                color: theme.colorScheme.onSurface.withValues(alpha:
-                                  0.3,
+                                color: theme.colorScheme.onSurface.withValues(
+                                  alpha: 0.3,
                                 ),
                               ),
                               const SizedBox(height: 16),
                               Text(
                                 'No transactions yet',
                                 style: theme.textTheme.titleMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha:0.6),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.6,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Start by recording a payment or making a UPI transaction',
                                 style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withValues(alpha:0.5),
+                                  color: theme.colorScheme.onSurface.withValues(
+                                    alpha: 0.5,
+                                  ),
                                 ),
                                 textAlign: TextAlign.center,
                               ),
