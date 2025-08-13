@@ -4,7 +4,7 @@
 ![Platform](https://img.shields.io/badge/platform-Android-blue )
 ![Built with Flutter](https://img.shields.io/badge/built%20with-Flutter-blueviolet )
 
-**SpendWise** is a simple, intuitive budget tracking app built with **Flutter** that helps you record expenses, view payment history, track monthly spending, and initiate UPI payments — all while keeping your data private and secure on your device.
+**Expense Tracker** is a simple, intuitive budget tracking app built with **Flutter** that helps you record expenses, view payment history, track monthly spending, and initiate UPI payments — all while keeping your data private and secure on your device.
 
 > No ads. No backend. Just smart and private, local expense tracking.
 

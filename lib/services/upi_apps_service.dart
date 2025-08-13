@@ -129,7 +129,7 @@ class UPIAppsService {
           .toList();
       return installedUpiApps;
     } catch (e) {
-      // print('Error getting installed UPI apps: $e');
+      print('Error getting installed UPI apps: $e');
       return [];
     }
   }
