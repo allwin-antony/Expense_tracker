@@ -2,10 +2,14 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../types/upi_applications.dart';
 import '../services/upi_apps_service.dart';
+import '../screens/qr_scan_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/payment.dart';
 import '../models/category.dart';
+
+/// Payment mode for the UPI dialog.
+enum PaymentMode { scanQr, directPay, copyAmount }
 
 class UpiPaymentDialog extends StatefulWidget {
   final Function(Payment) onPaymentInitiated;
@@ -27,8 +31,13 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
   String _selectedCategory = Category.defaultCategories[0];
   late Future<List<UpiApplication>> _upiApps;
   bool _isLoadingApps = false;
-  bool _isDirectPayment = true;
+  PaymentMode _paymentMode = PaymentMode.scanQr;
   List<Map<String, String>> _recentPayees = [];
+
+  // QR scan state
+  bool _isQrScanned = false;
+  bool _isAmountFromQr = false;
+  String? _rawQrUri; // The original URI from the QR code
 
   @override
   void dispose() {
@@ -105,9 +114,99 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
     }
   }
 
+  /// Launch the QR scanner and handle the result.
+  Future<void> _launchQrScanner() async {
+    final result = await Navigator.of(context).push<UpiQrData?>(
+      MaterialPageRoute(builder: (context) => const QrScanScreen()),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _isQrScanned = true;
+        _rawQrUri = result.rawUri;
+        _upiIdController.text = result.payeeAddress;
+        _payeeNameController.text = result.payeeName;
+
+        if (result.amount != null && result.amount!.isNotEmpty) {
+          _amountController.text = result.amount!;
+          _isAmountFromQr = true;
+        } else {
+          _isAmountFromQr = false;
+        }
+
+        if (result.transactionNote != null && result.transactionNote!.isNotEmpty) {
+          _descriptionController.text = result.transactionNote!;
+        }
+      });
+    }
+  }
+
+  void _clearQrScan() {
+    setState(() {
+      _isQrScanned = false;
+      _isAmountFromQr = false;
+      _rawQrUri = null;
+      _upiIdController.clear();
+      _payeeNameController.clear();
+      _amountController.clear();
+      _descriptionController.clear();
+    });
+  }
+
+  /// Build the UPI URL for a payment.
+  /// For QR scans: pass through the original URI, optionally adding/overriding amount.
+  /// For Direct Pay: construct a new URI with proper formatting.
+  String _buildUpiUrl() {
+    if (_isQrScanned && _rawQrUri != null) {
+      // Parse the original QR URI and optionally add/override amount
+      final originalUri = Uri.parse(_rawQrUri!);
+      final params = Map<String, String>.from(originalUri.queryParameters);
+
+      // If the QR didn't have an amount, add the user-entered one
+      if (!_isAmountFromQr && _amountController.text.isNotEmpty) {
+        params['am'] = double.parse(_amountController.text).toStringAsFixed(2);
+      }
+
+      // Ensure a transaction reference exists
+      if (!params.containsKey('tr') || params['tr']!.isEmpty) {
+        params['tr'] = DateTime.now().millisecondsSinceEpoch.toString();
+      }
+
+      final uri = Uri(
+        scheme: originalUri.scheme,
+        host: originalUri.host,
+        path: originalUri.path,
+        queryParameters: params,
+      );
+      return uri.toString();
+    } else {
+      // Direct Pay: construct URI from scratch
+      final upiId = _upiIdController.text.trim();
+      final name = _payeeNameController.text.trim();
+      final amount = _amountController.text;
+      final note = _descriptionController.text.trim().isNotEmpty
+          ? _descriptionController.text.trim()
+          : 'Expense';
+
+      final uri = Uri(
+        scheme: 'upi',
+        host: 'pay',
+        queryParameters: {
+          'pa': upiId,
+          'pn': name.isNotEmpty ? name : 'Payee',
+          'am': double.parse(amount).toStringAsFixed(2),
+          'cu': 'INR',
+          'tn': note,
+          'tr': DateTime.now().millisecondsSinceEpoch.toString(),
+        },
+      );
+      return uri.toString();
+    }
+  }
+
   void _initiatePayment() {
     if (_formKey.currentState!.validate()) {
-      if (!_isDirectPayment) {
+      if (_paymentMode == PaymentMode.copyAmount) {
         // Copy amount to clipboard for clipboard copy mode
         Clipboard.setData(ClipboardData(text: _amountController.text));
       }
@@ -118,6 +217,8 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
   }
 
   void _showUpiAppsDialog() {
+    final isDeepLink = _paymentMode != PaymentMode.copyAmount;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -134,15 +235,17 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
             Row(
               children: [
                 Icon(
-                  Icons.check_circle,
+                  isDeepLink ? Icons.check_circle : Icons.content_copy,
                   color: Theme.of(context).colorScheme.primary,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  _isDirectPayment
-                      ? 'Ready to initiate direct payment!'
-                      : 'Amount copied to clipboard!',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+                Expanded(
+                  child: Text(
+                    isDeepLink
+                        ? 'Ready to initiate payment!'
+                        : 'Amount copied to clipboard!',
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                 ),
               ],
             ),
@@ -190,18 +293,14 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
                         onTap: () async {
                           Navigator.pop(context);
                           
-                          if (_isDirectPayment) {
-                            final upiId = _upiIdController.text.trim();
-                            final name = _payeeNameController.text.trim();
-                            final amount = _amountController.text;
-                            final note = _descriptionController.text.trim().isNotEmpty
-                                ? _descriptionController.text.trim()
-                                : 'Expense';
-                            
-                            final upiUrl = 'upi://pay?pa=$upiId&pn=${Uri.encodeComponent(name)}&am=$amount&cu=INR&tn=${Uri.encodeComponent(note)}';
+                          if (isDeepLink) {
+                            final upiUrl = _buildUpiUrl();
                             
                             // Save to recent payees list
-                            await _saveRecentPayee(upiId, name);
+                            await _saveRecentPayee(
+                              _upiIdController.text.trim(),
+                              _payeeNameController.text.trim(),
+                            );
                             
                             // Launch custom deep link
                             await UPIAppsService.launchUpiUrl(app, upiUrl);
@@ -258,9 +357,11 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
   }
 
   void _confirmPayment() {
+    final isDeepLink = _paymentMode != PaymentMode.copyAmount;
+
     final payment = Payment(
       description: _descriptionController.text.trim().isEmpty
-          ? (_isDirectPayment && _payeeNameController.text.trim().isNotEmpty
+          ? (isDeepLink && _payeeNameController.text.trim().isNotEmpty
               ? _payeeNameController.text.trim()
               : 'Payment')
           : _descriptionController.text.trim(),
@@ -268,7 +369,7 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
       category: _selectedCategory,
       date: DateTime.now(),
       notes: _notesController.text.trim().isEmpty
-          ? (_isDirectPayment ? 'To UPI ID: ${_upiIdController.text.trim()}' : null)
+          ? (isDeepLink ? 'To UPI ID: ${_upiIdController.text.trim()}' : null)
           : _notesController.text.trim(),
       isInitiated: true,
     );
@@ -287,6 +388,7 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final showRecipientFields = _paymentMode != PaymentMode.copyAmount;
 
     return Container(
       padding: EdgeInsets.only(
@@ -315,40 +417,156 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
                         ),
                         const SizedBox(height: 16),
                         
-                        // Toggle Segmented Control
+                        // 3-mode Segmented Control
                         Center(
-                          child: SegmentedButton<bool>(
+                          child: SegmentedButton<PaymentMode>(
                             segments: const [
-                              ButtonSegment<bool>(
-                                value: true,
+                              ButtonSegment<PaymentMode>(
+                                value: PaymentMode.scanQr,
+                                icon: Icon(Icons.qr_code_scanner),
+                                label: Text('Scan QR'),
+                              ),
+                              ButtonSegment<PaymentMode>(
+                                value: PaymentMode.directPay,
                                 icon: Icon(Icons.bolt),
                                 label: Text('Direct Pay'),
                               ),
-                              ButtonSegment<bool>(
-                                value: false,
+                              ButtonSegment<PaymentMode>(
+                                value: PaymentMode.copyAmount,
                                 icon: Icon(Icons.content_copy),
-                                label: Text('Copy Amount'),
+                                label: Text('Copy'),
                               ),
                             ],
-                            selected: {_isDirectPayment},
-                            onSelectionChanged: (Set<bool> newSelection) {
+                            selected: {_paymentMode},
+                            onSelectionChanged: (Set<PaymentMode> newSelection) {
                               setState(() {
-                                _isDirectPayment = newSelection.first;
+                                _paymentMode = newSelection.first;
+                                // Clear QR state when switching away from Scan QR
+                                if (_paymentMode != PaymentMode.scanQr) {
+                                  _isQrScanned = false;
+                                  _isAmountFromQr = false;
+                                  _rawQrUri = null;
+                                }
                               });
                             },
                           ),
                         ),
                         const SizedBox(height: 20),
 
+                        // Scan QR button (only in Scan QR mode)
+                        if (_paymentMode == PaymentMode.scanQr) ...[
+                          if (!_isQrScanned) ...[
+                            // Scan button
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                onPressed: _launchQrScanner,
+                                icon: const Icon(Icons.qr_code_scanner, size: 28),
+                                label: const Text(
+                                  'Open Camera & Scan QR',
+                                  style: TextStyle(fontSize: 16),
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  side: BorderSide(
+                                    color: theme.colorScheme.primary,
+                                    width: 1.5,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Center(
+                              child: Text(
+                                'Scan a UPI QR code to auto-fill payment details',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ] else ...[
+                            // Scanned indicator
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: theme.colorScheme.primary.withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: theme.colorScheme.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Scanned from QR ✓',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: theme.colorScheme.primary,
+                                            fontSize: 13,
+                                          ),
+                                        ),
+                                        Text(
+                                          _upiIdController.text,
+                                          style: theme.textTheme.bodySmall?.copyWith(
+                                            color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  TextButton.icon(
+                                    onPressed: () {
+                                      _clearQrScan();
+                                      _launchQrScanner();
+                                    },
+                                    icon: const Icon(Icons.refresh, size: 16),
+                                    label: const Text('Re-scan'),
+                                    style: TextButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        ],
+
+                        // Amount field
                         TextFormField(
                           controller: _amountController,
+                          readOnly: _isAmountFromQr,
                           keyboardType: const TextInputType.numberWithOptions(
                             decimal: true,
                           ),
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Amount',
                             prefixText: '₹ ',
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
+                            suffixIcon: _isAmountFromQr
+                                ? Tooltip(
+                                    message: 'Amount set by merchant QR',
+                                    child: Icon(
+                                      Icons.lock,
+                                      size: 18,
+                                      color: theme.colorScheme.primary.withValues(alpha: 0.6),
+                                    ),
+                                  )
+                                : null,
                           ),
                           validator: (value) {
                             if (value == null || value.isEmpty) {
@@ -363,84 +581,114 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
                         ),
                         const SizedBox(height: 16),
 
-                        if (_isDirectPayment) ...[
-                          TextFormField(
-                            controller: _upiIdController,
-                            decoration: const InputDecoration(
-                              labelText: 'Recipient UPI ID',
-                              hintText: 'e.g. name@bank',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.alternate_email),
-                            ),
-                            validator: (value) {
-                              if (_isDirectPayment) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter a UPI ID';
-                                }
-                                if (!value.contains('@')) {
-                                  return 'Please enter a valid UPI ID (e.g. user@bank)';
-                                }
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          TextFormField(
-                            controller: _payeeNameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Recipient Name (Optional)',
-                              border: OutlineInputBorder(),
-                              prefixIcon: Icon(Icons.person_outline),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          if (_recentPayees.isNotEmpty) ...[
-                            Text(
-                              'Recent Payees',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: theme.colorScheme.primary,
+                        // Recipient fields (Scan QR or Direct Pay modes)
+                        if (showRecipientFields) ...[
+                          if (_paymentMode == PaymentMode.directPay) ...[
+                            TextFormField(
+                              controller: _upiIdController,
+                              decoration: const InputDecoration(
+                                labelText: 'Recipient UPI ID',
+                                hintText: 'e.g. name@bank',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.alternate_email),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            SizedBox(
-                              height: 44,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _recentPayees.length,
-                                itemBuilder: (context, index) {
-                                  final payee = _recentPayees[index];
-                                  final displayName = payee['name']!.isNotEmpty
-                                      ? payee['name']!
-                                      : payee['upiId']!;
-                                  return Padding(
-                                    padding: const EdgeInsets.only(right: 8.0),
-                                    child: ActionChip(
-                                      avatar: CircleAvatar(
-                                        backgroundColor: theme.colorScheme.primaryContainer,
-                                        child: Text(
-                                          displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            color: theme.colorScheme.onPrimaryContainer,
-                                          ),
-                                        ),
-                                      ),
-                                      label: Text(displayName),
-                                      onPressed: () {
-                                        setState(() {
-                                          _upiIdController.text = payee['upiId']!;
-                                          _payeeNameController.text = payee['name']!;
-                                        });
-                                      },
-                                    ),
-                                  );
-                                },
-                              ),
+                              validator: (value) {
+                                if (_paymentMode == PaymentMode.directPay) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter a UPI ID';
+                                  }
+                                  if (!value.contains('@')) {
+                                    return 'Please enter a valid UPI ID (e.g. user@bank)';
+                                  }
+                                }
+                                return null;
+                              },
                             ),
                             const SizedBox(height: 16),
+
+                            TextFormField(
+                              controller: _payeeNameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Recipient Name (Optional)',
+                                border: OutlineInputBorder(),
+                                prefixIcon: Icon(Icons.person_outline),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+
+                            if (_recentPayees.isNotEmpty) ...[
+                              Text(
+                                'Recent Payees',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                height: 44,
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: _recentPayees.length,
+                                  itemBuilder: (context, index) {
+                                    final payee = _recentPayees[index];
+                                    final displayName = payee['name']!.isNotEmpty
+                                        ? payee['name']!
+                                        : payee['upiId']!;
+                                    return Padding(
+                                      padding: const EdgeInsets.only(right: 8.0),
+                                      child: ActionChip(
+                                        avatar: CircleAvatar(
+                                          backgroundColor: theme.colorScheme.primaryContainer,
+                                          child: Text(
+                                            displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: theme.colorScheme.onPrimaryContainer,
+                                            ),
+                                          ),
+                                        ),
+                                        label: Text(displayName),
+                                        onPressed: () {
+                                          setState(() {
+                                            _upiIdController.text = payee['upiId']!;
+                                            _payeeNameController.text = payee['name']!;
+                                          });
+                                        },
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                          ],
+
+                          // For Scan QR mode: show validation for amount when QR is scanned
+                          if (_paymentMode == PaymentMode.scanQr && _isQrScanned) ...[
+                            // Show payee name if available
+                            if (_payeeNameController.text.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.person, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.6)),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'To: ${_payeeNameController.text}',
+                                      style: theme.textTheme.bodyMedium?.copyWith(
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                           ],
                         ],
 
@@ -492,7 +740,11 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: _isLoadingApps ? null : _initiatePayment,
+                      onPressed: _isLoadingApps
+                          ? null
+                          : (_paymentMode == PaymentMode.scanQr && !_isQrScanned)
+                              ? _launchQrScanner
+                              : _initiatePayment,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
                         foregroundColor: theme.colorScheme.onPrimary,
@@ -504,9 +756,11 @@ class _UpiPaymentDialogState extends State<UpiPaymentDialog> {
                               width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text(
-                              'Initiate Payment',
-                              style: TextStyle(
+                          : Text(
+                              (_paymentMode == PaymentMode.scanQr && !_isQrScanned)
+                                  ? 'Scan QR Code'
+                                  : 'Initiate Payment',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
