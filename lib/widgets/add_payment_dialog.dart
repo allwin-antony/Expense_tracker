@@ -149,7 +149,7 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                   const SizedBox(height: 16),
 
                   DropdownButtonFormField<String>(
-                    value: _selectedCategory,
+                    initialValue: _selectedCategory,
                     decoration: const InputDecoration(
                       labelText: 'Category',
                       border: OutlineInputBorder(),

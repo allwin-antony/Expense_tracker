@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io' as io;
 import 'package:external_app_launcher/external_app_launcher.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:installed_apps/installed_apps.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../models/upi_app.dart';
 import '../types/upi_applications.dart';
 import 'database_service.dart';
@@ -89,23 +92,17 @@ class UPIAppsService {
       final installedApps = await InstalledApps.getInstalledApps(true, true);
 
       // Get all UPI apps from our database
-      final allUpiApps = await UPIAppsService.instance.getAllUPIApps();
+      var allUpiApps = await UPIAppsService.instance.getAllUPIApps();
 
-      // Filter to get only installed UPI apps
-      // final installedUpiApps = allUpiApps
-      //     .where((upiApp) {
-      //       return installedApps.any(
-      //         (installedApp) =>
-      //             installedApp.packageName == upiApp.androidPackageName,
-      //       );
-      //     })
-      //     .map((upiApp) {
-      //       return UpiApplication(
-      //         androidPackageName: upiApp.androidPackageName,
-      //         appName: upiApp.appName,
-      //       );
-      //     })
-      //     .toList();
+      // Fallback if local database is empty due to config URL issues
+      if (allUpiApps.isEmpty) {
+        allUpiApps = UpiApplications.all
+            .map((app) => UPIApp(
+                  androidPackageName: app.androidPackageName,
+                  appName: app.appName,
+                ))
+            .toList();
+      }
 
       final installedUpiApps = installedApps
           .where((allApp) {
@@ -145,6 +142,32 @@ class UPIAppsService {
     } catch (e) {
       // print('Error launching UPI app: $e');
       return false;
+    }
+  }
+
+  /// Launch a custom UPI deep link using android_intent_plus for Android
+  /// or fallback to url_launcher / package launcher if that fails.
+  static Future<bool> launchUpiUrl(UpiApplication app, String upiUrl) async {
+    try {
+      if (io.Platform.isAndroid) {
+        final intent = AndroidIntent(
+          action: 'android.intent.action.VIEW',
+          data: upiUrl,
+          package: app.androidPackageName,
+        );
+        await intent.launch();
+        return true;
+      } else {
+        final uri = Uri.parse(upiUrl);
+        if (await canLaunchUrl(uri)) {
+          return await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      }
+      return false;
+    } catch (e) {
+      print('Error launching package-specific intent: $e. Falling back...');
+      // Fallback: Copy clipboard + launch basic app package
+      return await launchUpiApp(app);
     }
   }
 }
