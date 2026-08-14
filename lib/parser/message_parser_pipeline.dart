@@ -1,6 +1,6 @@
 import '../models/payment.dart';
 import 'financial_regex_patterns.dart';
-import 'merchant_categorizer.dart';
+import 'ml/authenticity_validator.dart';
 
 class ParsedTransactionResult {
   final bool isSuccess;
@@ -132,15 +132,15 @@ class MessageParserPipeline {
       accountRef = '$bankName Bank';
     }
 
-    // 4. Extract Payment Mode
+    // 4. Extract Payment Mode with strict word boundaries
     PaymentMode paymentMode = PaymentMode.upi;
-    if (lower.contains('card') || lower.contains('pos') || lower.contains('credit card') || lower.contains('debit card')) {
+    if (RegExp(r'\b(?:credit\s*card|debit\s*card|card|pos\s*machine|pos\s*txn|\bpos\b)', caseSensitive: false).hasMatch(cleanText)) {
       paymentMode = PaymentMode.card;
-    } else if (lower.contains('neft') || lower.contains('imps') || lower.contains('rtgs') || lower.contains('netbanking') || lower.contains('net banking')) {
+    } else if (RegExp(r'\b(?:neft|imps|rtgs|netbanking|net\s*banking|wire\s*transfer|bank\s*transfer)\b', caseSensitive: false).hasMatch(cleanText)) {
       paymentMode = PaymentMode.netBanking;
-    } else if (lower.contains('atm') || lower.contains('cash')) {
+    } else if (RegExp(r'\b(?:atm|cash\s*withdrawal|cash\s*deposit|cash)\b', caseSensitive: false).hasMatch(cleanText)) {
       paymentMode = PaymentMode.cash;
-    } else if (lower.contains('upi') || lower.contains('vpa')) {
+    } else if (RegExp(r'\b(?:upi|vpa|scan\s*&\s*pay|gpay|phonepe|paytm)\b', caseSensitive: false).hasMatch(cleanText)) {
       paymentMode = PaymentMode.upi;
     }
 
@@ -161,23 +161,30 @@ class MessageParserPipeline {
       }
     }
 
-    // 7. Semantic categorization & normalization
-    final catResult = MerchantCategorizer.categorize(
+    // 7. AI Authenticity & Semantic Validation
+    final authResult = AuthenticityValidator.instance.evaluate(
+      rawText: cleanText,
       rawMerchant: rawMerchant,
-      fullMessage: cleanText,
-      isIncome: type == TransactionType.credit,
+      amount: extractedAmount,
+      isCredit: type == TransactionType.credit,
     );
 
+    if (!authResult.isAuthentic) {
+      return ParsedTransactionResult.failure(
+        authResult.rejectionReason ?? 'Message failed AI authenticity validation.',
+      );
+    }
+
     final payment = Payment(
-      description: catResult.cleanMerchant,
+      description: authResult.cleanMerchant,
       amount: extractedAmount,
       type: type,
-      category: catResult.category,
+      category: authResult.category,
       paymentMode: paymentMode,
       source: source,
       accountReference: accountRef,
       rawMessage: cleanText,
-      confidence: catResult.confidence,
+      confidence: authResult.confidence,
       date: DateTime.now(),
       notes: refId != null ? 'Ref: $refId' : null,
     );
@@ -185,7 +192,7 @@ class MessageParserPipeline {
     return ParsedTransactionResult(
       isSuccess: true,
       payment: payment,
-      confidence: catResult.confidence,
+      confidence: authResult.confidence,
       rawMerchant: rawMerchant,
       refId: refId,
     );

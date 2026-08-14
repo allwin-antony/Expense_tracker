@@ -1,103 +1,395 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/payment.dart';
 import '../services/database_service.dart';
+import '../utils/date_group_helper.dart';
 import '../widgets/payment_card.dart';
 import '../widgets/edit_payment_dialog.dart';
+import '../widgets/shimmer_loading.dart';
+
+enum TimeFilterPreset {
+  allTime,
+  thisMonth,
+  lastMonth,
+  last30Days,
+  thisYear,
+  specificMonth,
+  customRange;
+
+  String get displayName {
+    switch (this) {
+      case TimeFilterPreset.allTime:
+        return 'All Time';
+      case TimeFilterPreset.thisMonth:
+        return 'This Month';
+      case TimeFilterPreset.lastMonth:
+        return 'Last Month';
+      case TimeFilterPreset.last30Days:
+        return 'Last 30 Days';
+      case TimeFilterPreset.thisYear:
+        return 'This Year';
+      case TimeFilterPreset.specificMonth:
+        return 'Selected Month';
+      case TimeFilterPreset.customRange:
+        return 'Custom Range';
+    }
+  }
+}
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final String? initialCategory;
+  final String? initialFilterType; // 'All', 'Expense', 'Income'
+  final DateTime? initialMonth; // e.g. when navigated from Analytics
+
+  const HistoryScreen({
+    super.key,
+    this.initialCategory,
+    this.initialFilterType,
+    this.initialMonth,
+  });
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  static const int _pageSize = 25;
+
   List<Payment> _payments = [];
-  List<Payment> _filteredPayments = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = false;
+
+  int _totalCount = 0;
+  double _filteredTotalExpense = 0.0;
+  double _filteredTotalIncome = 0.0;
+
   String _searchQuery = '';
   String _selectedCategory = 'All';
   String _selectedFilterType = 'All'; // 'All', 'Expense', 'Income'
+
+  TimeFilterPreset _selectedTimePreset = TimeFilterPreset.allTime;
+  DateTime? _filterMonth; // When a specific month is chosen (e.g. from Analytics)
+  DateTimeRange? _customDateRange;
+
   final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  Timer? _searchDebounceTimer;
 
   @override
   void initState() {
     super.initState();
-    _loadPayments();
+    _applyInitialFilters();
+    _scrollController.addListener(_onScroll);
+    _loadFilteredData();
+    DatabaseService.instance.dataChangeNotifier.addListener(_onDataChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialCategory != oldWidget.initialCategory ||
+        widget.initialFilterType != oldWidget.initialFilterType ||
+        widget.initialMonth != oldWidget.initialMonth) {
+      _applyInitialFilters();
+      _loadFilteredData();
+    }
+  }
+
+  void _applyInitialFilters() {
+    if (widget.initialCategory != null) {
+      _selectedCategory = widget.initialCategory!;
+    }
+    if (widget.initialFilterType != null) {
+      _selectedFilterType = widget.initialFilterType!;
+    }
+    if (widget.initialMonth != null) {
+      _filterMonth = widget.initialMonth;
+      _selectedTimePreset = TimeFilterPreset.specificMonth;
+    }
   }
 
   @override
   void dispose() {
+    _searchDebounceTimer?.cancel();
     _searchController.dispose();
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    DatabaseService.instance.dataChangeNotifier.removeListener(_onDataChanged);
     super.dispose();
   }
 
-  Future<void> _loadPayments() async {
-    setState(() => _isLoading = true);
-
-    try {
-      final payments = await DatabaseService.instance.getAllPayments();
-      setState(() {
-        _payments = payments;
-        _filterPayments();
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
+  void _onScroll() {
+    if (_scrollController.position.pixels >=
+            _scrollController.position.maxScrollExtent - 300 &&
+        !_isLoadingMore &&
+        _hasMore &&
+        !_isLoading) {
+      _loadMorePayments();
     }
   }
 
-  void _filterPayments() {
-    setState(() {
-      _filteredPayments = _payments.where((payment) {
-        // Search query
-        final q = _searchQuery.toLowerCase();
-        final matchesSearch = payment.description.toLowerCase().contains(q) ||
-            (payment.accountReference?.toLowerCase().contains(q) ?? false) ||
-            (payment.notes?.toLowerCase().contains(q) ?? false);
+  void _onDataChanged() {
+    if (mounted) {
+      _loadFilteredData(silent: true);
+    }
+  }
 
-        // Category filter
-        final matchesCategory =
-            _selectedCategory == 'All' || payment.category == _selectedCategory;
+  (DateTime? start, DateTime? end) _getDatesForCurrentPreset() {
+    final now = DateTime.now();
+    switch (_selectedTimePreset) {
+      case TimeFilterPreset.allTime:
+        return (null, null);
 
-        // Type filter (All / Expense / Income)
-        bool matchesType = true;
-        if (_selectedFilterType == 'Expense') {
-          matchesType = payment.type == TransactionType.debit;
-        } else if (_selectedFilterType == 'Income') {
-          matchesType = payment.type == TransactionType.credit;
+      case TimeFilterPreset.thisMonth:
+        final start = DateTime(now.year, now.month, 1);
+        final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+        return (start, end);
+
+      case TimeFilterPreset.lastMonth:
+        final start = DateTime(now.year, now.month - 1, 1);
+        final end = DateTime(now.year, now.month, 0, 23, 59, 59);
+        return (start, end);
+
+      case TimeFilterPreset.last30Days:
+        final start = now.subtract(const Duration(days: 30));
+        final end = now;
+        return (start, end);
+
+      case TimeFilterPreset.thisYear:
+        final start = DateTime(now.year, 1, 1);
+        final end = DateTime(now.year, 12, 31, 23, 59, 59);
+        return (start, end);
+
+      case TimeFilterPreset.specificMonth:
+        if (_filterMonth != null) {
+          final start = DateTime(_filterMonth!.year, _filterMonth!.month, 1);
+          final end = DateTime(_filterMonth!.year, _filterMonth!.month + 1, 0, 23, 59, 59);
+          return (start, end);
         }
+        return (null, null);
 
-        return matchesSearch && matchesCategory && matchesType;
-      }).toList();
-    });
+      case TimeFilterPreset.customRange:
+        if (_customDateRange != null) {
+          final start = DateTime(
+            _customDateRange!.start.year,
+            _customDateRange!.start.month,
+            _customDateRange!.start.day,
+          );
+          final end = DateTime(
+            _customDateRange!.end.year,
+            _customDateRange!.end.month,
+            _customDateRange!.end.day,
+            23,
+            59,
+            59,
+          );
+          return (start, end);
+        }
+        return (null, null);
+    }
+  }
+
+  TransactionType? get _currentTransactionType {
+    if (_selectedFilterType == 'Expense') return TransactionType.debit;
+    if (_selectedFilterType == 'Income') return TransactionType.credit;
+    return null;
+  }
+
+  /// Initial load / Filter changed query
+  Future<void> _loadFilteredData({bool silent = false}) async {
+    if (!silent) {
+      setState(() => _isLoading = true);
+    }
+
+    try {
+      final (startDate, endDate) = _getDatesForCurrentPreset();
+
+      // 1. Fetch SQL-level aggregated metrics
+      final metrics = await DatabaseService.instance.getFilteredSummaryMetrics(
+        searchQuery: _searchQuery,
+        category: _selectedCategory,
+        type: _currentTransactionType,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      // 2. Fetch first page of paginated records
+      final firstPage = await DatabaseService.instance.getFilteredPaymentsPaginated(
+        limit: _pageSize,
+        offset: 0,
+        searchQuery: _searchQuery,
+        category: _selectedCategory,
+        type: _currentTransactionType,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      if (mounted) {
+        setState(() {
+          _payments = firstPage;
+          _totalCount = metrics.totalCount;
+          _filteredTotalExpense = metrics.totalExpense;
+          _filteredTotalIncome = metrics.totalIncome;
+          _hasMore = firstPage.length < metrics.totalCount;
+          if (!silent) _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted && !silent) setState(() => _isLoading = false);
+    }
+  }
+
+  /// Loads next page of records when user scrolls down
+  Future<void> _loadMorePayments() async {
+    if (_isLoadingMore || !_hasMore) return;
+
+    setState(() => _isLoadingMore = true);
+
+    try {
+      final (startDate, endDate) = _getDatesForCurrentPreset();
+
+      final nextPage = await DatabaseService.instance.getFilteredPaymentsPaginated(
+        limit: _pageSize,
+        offset: _payments.length,
+        searchQuery: _searchQuery,
+        category: _selectedCategory,
+        type: _currentTransactionType,
+        startDate: startDate,
+        endDate: endDate,
+      );
+
+      if (mounted) {
+        setState(() {
+          _payments.addAll(nextPage);
+          _hasMore = _payments.length < _totalCount;
+          _isLoadingMore = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   void _onSearchChanged(String query) {
-    setState(() => _searchQuery = query);
-    _filterPayments();
+    _searchDebounceTimer?.cancel();
+    _searchDebounceTimer = Timer(const Duration(milliseconds: 250), () {
+      if (mounted) {
+        setState(() => _searchQuery = query);
+        _loadFilteredData();
+      }
+    });
   }
 
   void _onCategoryChanged(String? category) {
+    HapticFeedback.selectionClick();
     setState(() => _selectedCategory = category ?? 'All');
-    _filterPayments();
+    _loadFilteredData();
+  }
+
+  void _onTypeChanged(String type) {
+    HapticFeedback.selectionClick();
+    setState(() => _selectedFilterType = type);
+    _loadFilteredData();
+  }
+
+  void _onTimePresetChanged(TimeFilterPreset preset) async {
+    HapticFeedback.selectionClick();
+    if (preset == TimeFilterPreset.customRange) {
+      final pickedRange = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2020),
+        lastDate: DateTime.now().add(const Duration(days: 365)),
+        initialDateRange: _customDateRange ??
+            DateTimeRange(
+              start: DateTime.now().subtract(const Duration(days: 7)),
+              end: DateTime.now(),
+            ),
+      );
+
+      if (pickedRange != null) {
+        setState(() {
+          _customDateRange = pickedRange;
+          _selectedTimePreset = TimeFilterPreset.customRange;
+        });
+        _loadFilteredData();
+      }
+    } else {
+      setState(() {
+        _selectedTimePreset = preset;
+        if (preset != TimeFilterPreset.specificMonth) {
+          _filterMonth = null;
+        }
+      });
+      _loadFilteredData();
+    }
+  }
+
+  void _resetAllFilters() {
+    HapticFeedback.lightImpact();
+    setState(() {
+      _searchQuery = '';
+      _searchController.clear();
+      _selectedCategory = 'All';
+      _selectedFilterType = 'All';
+      _selectedTimePreset = TimeFilterPreset.allTime;
+      _filterMonth = null;
+      _customDateRange = null;
+    });
+    _loadFilteredData();
+  }
+
+  bool get _hasActiveFilters {
+    return _searchQuery.isNotEmpty ||
+        _selectedCategory != 'All' ||
+        _selectedFilterType != 'All' ||
+        _selectedTimePreset != TimeFilterPreset.allTime;
+  }
+
+  String get _timeFilterLabel {
+    switch (_selectedTimePreset) {
+      case TimeFilterPreset.allTime:
+        return 'All Time';
+      case TimeFilterPreset.thisMonth:
+        return 'This Month';
+      case TimeFilterPreset.lastMonth:
+        return 'Last Month';
+      case TimeFilterPreset.last30Days:
+        return 'Last 30 Days';
+      case TimeFilterPreset.thisYear:
+        return 'This Year';
+      case TimeFilterPreset.specificMonth:
+        return _filterMonth != null ? DateFormat('MMM yyyy').format(_filterMonth!) : 'Month';
+      case TimeFilterPreset.customRange:
+        if (_customDateRange != null) {
+          return '${DateFormat('MMM d').format(_customDateRange!.start)} - ${DateFormat('MMM d').format(_customDateRange!.end)}';
+        }
+        return 'Custom';
+    }
   }
 
   Future<void> _deletePayment(Payment payment) async {
+    HapticFeedback.mediumImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete Transaction'),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Transaction', style: TextStyle(fontWeight: FontWeight.bold)),
         content: Text('Are you sure you want to delete "${payment.description}"?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFDC2626),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -106,11 +398,24 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     if (confirmed == true && payment.id != null) {
       await DatabaseService.instance.deletePayment(payment.id!);
-      _loadPayments();
+      if (mounted) {
+        setState(() {
+          _payments.removeWhere((p) => p.id == payment.id);
+          _totalCount = (_totalCount - 1).clamp(0, 999999);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Transaction deleted'),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
     }
   }
 
   void _showEditDialog(Payment payment) {
+    HapticFeedback.selectionClick();
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -119,40 +424,171 @@ class _HistoryScreenState extends State<HistoryScreen> {
         payment: payment,
         onPaymentUpdated: (updatedPayment) async {
           await DatabaseService.instance.updatePayment(updatedPayment);
-          _loadPayments();
+          if (mounted) {
+            final index = _payments.indexWhere((p) => p.id == updatedPayment.id);
+            if (index != -1) {
+              setState(() {
+                _payments[index] = updatedPayment;
+              });
+            }
+          }
         },
       ),
     );
+  }
+
+  Future<void> _toggleExcludePayment(Payment payment, bool isExcluded) async {
+    if (payment.id == null) return;
+    HapticFeedback.mediumImpact();
+    await DatabaseService.instance.toggleExcludePayment(payment.id!, isExcluded);
+
+    if (mounted) {
+      final index = _payments.indexWhere((p) => p.id == payment.id);
+      if (index != -1) {
+        setState(() {
+          _payments[index] = payment.copyWith(isExcludedFromBudget: isExcluded);
+        });
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Icon(
+                isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isExcluded
+                      ? 'Excluded from budget calculations'
+                      : 'Included in budget calculations',
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
+  Future<void> _assignBudgetMonth(Payment payment, DateTime? budgetMonth) async {
+    if (payment.id == null) return;
+    HapticFeedback.mediumImpact();
+    await DatabaseService.instance.setBudgetMonth(payment.id!, budgetMonth);
+
+    if (mounted) {
+      final index = _payments.indexWhere((p) => p.id == payment.id);
+      if (index != -1) {
+        setState(() {
+          _payments[index] = payment.copyWith(
+            budgetMonth: budgetMonth,
+            clearBudgetMonth: budgetMonth == null,
+          );
+        });
+      }
+
+      final monthStr = budgetMonth != null
+          ? DateFormat('MMMM yyyy').format(budgetMonth)
+          : DateFormat('MMMM yyyy').format(payment.date);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Counted in $monthStr budget'),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final dateGroups = DateGroupHelper.groupByDate(_payments);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Transaction History', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text(
+          'Transaction History',
+          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: () => _loadFilteredData(),
+          ),
+        ],
       ),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: _loadPayments,
-              child: Column(
-                children: [
-                  // Search & Filter Header
-                  Container(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                    color: theme.scaffoldBackgroundColor,
+          ? Column(
+              children: [
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Expanded(
+                  child: SingleChildScrollView(
                     child: Column(
                       children: [
-                        // Search bar
+                        ShimmerTransactionSkeleton(),
+                        ShimmerTransactionSkeleton(),
+                        ShimmerTransactionSkeleton(),
+                        ShimmerTransactionSkeleton(),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : RefreshIndicator(
+              onRefresh: () => _loadFilteredData(silent: true),
+              child: Column(
+                children: [
+                  // Filter Section
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Search Bar
                         TextField(
                           controller: _searchController,
                           decoration: InputDecoration(
-                            hintText: 'Search by merchant, account or notes...',
-                            hintStyle: const TextStyle(fontSize: 13),
-                            prefixIcon: const Icon(Icons.search, size: 20),
+                            hintText: 'Search description, account, notes...',
+                            hintStyle: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                            ),
+                            prefixIcon: Icon(
+                              Icons.search_rounded,
+                              size: 20,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            ),
                             suffixIcon: _searchQuery.isNotEmpty
                                 ? IconButton(
                                     icon: const Icon(Icons.clear, size: 18),
@@ -163,141 +599,500 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   )
                                 : null,
                             filled: true,
-                            fillColor: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                            fillColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(14),
                               borderSide: BorderSide.none,
                             ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(14),
+                              borderSide: BorderSide(
+                                color: theme.colorScheme.primary,
+                                width: 1.5,
+                              ),
+                            ),
                           ),
+                          style: const TextStyle(fontSize: 13.5),
                           onChanged: _onSearchChanged,
                         ),
                         const SizedBox(height: 10),
 
-                        // Filter Chips Row
-                        Row(
-                          children: [
-                            // Segmented Filter
-                            Expanded(
-                              flex: 3,
-                              child: SegmentedButton<String>(
-                                style: ButtonStyle(
-                                  visualDensity: VisualDensity.compact,
-                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                segments: const [
-                                  ButtonSegment(value: 'All', label: Text('All', style: TextStyle(fontSize: 12))),
-                                  ButtonSegment(value: 'Expense', label: Text('Expense', style: TextStyle(fontSize: 12))),
-                                  ButtonSegment(value: 'Income', label: Text('Income', style: TextStyle(fontSize: 12))),
-                                ],
-                                selected: {_selectedFilterType},
-                                onSelectionChanged: (set) {
-                                  setState(() {
-                                    _selectedFilterType = set.first;
-                                    _filterPayments();
-                                  });
-                                },
+                        // Row 1: Type Segmented Button
+                        SizedBox(
+                          width: double.infinity,
+                          child: SegmentedButton<String>(
+                            segments: const [
+                              ButtonSegment(
+                                value: 'All',
+                                label: Text('All', style: TextStyle(fontSize: 12)),
+                              ),
+                              ButtonSegment(
+                                value: 'Expense',
+                                label: Text('Expenses', style: TextStyle(fontSize: 12)),
+                              ),
+                              ButtonSegment(
+                                value: 'Income',
+                                label: Text('Income', style: TextStyle(fontSize: 12)),
+                              ),
+                            ],
+                            selected: {_selectedFilterType},
+                            onSelectionChanged: (set) {
+                              _onTypeChanged(set.first);
+                            },
+                            style: ButtonStyle(
+                              visualDensity: VisualDensity.compact,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              padding: WidgetStateProperty.all(
+                                const EdgeInsets.symmetric(horizontal: 4, vertical: 0),
                               ),
                             ),
-                            const SizedBox(width: 8),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
 
+                        // Row 2: Category & Time Preset Filter
+                        Row(
+                          children: [
                             // Category Dropdown
                             Expanded(
-                              flex: 2,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                height: 42,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
                                 decoration: BoxDecoration(
-                                  color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
                                   borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
                                 ),
                                 child: DropdownButtonHideUnderline(
                                   child: DropdownButton<String>(
                                     value: _selectedCategory,
                                     isExpanded: true,
-                                    icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
                                     style: TextStyle(
-                                      fontSize: 12,
-                                      color: theme.textTheme.bodyMedium?.color,
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     ),
                                     items: [
-                                      const DropdownMenuItem(
-                                        value: 'All',
-                                        child: Text('All Categories'),
-                                      ),
-                                      ...Category.allCategories.map(
-                                        (cat) => DropdownMenuItem(
-                                          value: cat,
-                                          child: Text('${Category.getIcon(cat)} $cat', overflow: TextOverflow.ellipsis),
-                                        ),
-                                      ),
+                                      const DropdownMenuItem(value: 'All', child: Text('All Categories')),
+                                      ...Category.allCategories.map((c) => DropdownMenuItem(
+                                            value: c,
+                                            child: Row(
+                                              children: [
+                                                Text(Category.getIcon(c), style: const TextStyle(fontSize: 13)),
+                                                const SizedBox(width: 6),
+                                                Expanded(
+                                                  child: Text(
+                                                    c,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(fontSize: 12),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )),
                                     ],
                                     onChanged: _onCategoryChanged,
                                   ),
                                 ),
                               ),
                             ),
+                            const SizedBox(width: 8),
+
+                            // Time Filter Dropdown / Picker
+                            Expanded(
+                              child: Container(
+                                height: 42,
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                decoration: BoxDecoration(
+                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: isDark
+                                        ? Colors.white.withValues(alpha: 0.08)
+                                        : const Color(0xFFE2E8F0),
+                                  ),
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<TimeFilterPreset>(
+                                    value: _selectedTimePreset,
+                                    isExpanded: true,
+                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                    ),
+                                    items: TimeFilterPreset.values.map((preset) {
+                                      String label = preset.displayName;
+                                      if (preset == TimeFilterPreset.specificMonth && _filterMonth != null) {
+                                        label = DateFormat('MMM yyyy').format(_filterMonth!);
+                                      }
+                                      return DropdownMenuItem(
+                                        value: preset,
+                                        child: Text(
+                                          label,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontSize: 12),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) _onTimePresetChanged(val);
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        // Active Filter Pills
+                        if (_hasActiveFilters) ...[
+                          const SizedBox(height: 8),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                if (_searchQuery.isNotEmpty)
+                                  _buildFilterChip(
+                                    '"$_searchQuery"',
+                                    onDeleted: () {
+                                      _searchController.clear();
+                                      _onSearchChanged('');
+                                    },
+                                    isDark: isDark,
+                                    theme: theme,
+                                  ),
+                                if (_selectedCategory != 'All')
+                                  _buildFilterChip(
+                                    '${Category.getIcon(_selectedCategory)} $_selectedCategory',
+                                    onDeleted: () => _onCategoryChanged('All'),
+                                    isDark: isDark,
+                                    theme: theme,
+                                  ),
+                                if (_selectedFilterType != 'All')
+                                  _buildFilterChip(
+                                    _selectedFilterType,
+                                    onDeleted: () => _onTypeChanged('All'),
+                                    isDark: isDark,
+                                    theme: theme,
+                                  ),
+                                if (_selectedTimePreset != TimeFilterPreset.allTime)
+                                  _buildFilterChip(
+                                    _timeFilterLabel,
+                                    onDeleted: () => _onTimePresetChanged(TimeFilterPreset.allTime),
+                                    isDark: isDark,
+                                    theme: theme,
+                                  ),
+                                TextButton(
+                                  onPressed: _resetAllFilters,
+                                  style: TextButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  child: const Text('Reset All', style: TextStyle(fontSize: 11)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+
+                  // Results Summary Bar
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '$_totalCount transaction${_totalCount == 1 ? '' : 's'}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            if (_filteredTotalIncome > 0 && _selectedFilterType != 'Expense')
+                              Text(
+                                '+₹${NumberFormat('#,##,###').format(_filteredTotalIncome)}  ',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF16A34A),
+                                ),
+                              ),
+                            if (_filteredTotalExpense > 0 && _selectedFilterType != 'Income')
+                              Text(
+                                '-₹${NumberFormat('#,##,###').format(_filteredTotalExpense)}',
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFFDC2626),
+                                ),
+                              ),
                           ],
                         ),
                       ],
                     ),
                   ),
 
-                  // Results Count
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          '${_filteredPayments.length} transaction${_filteredPayments.length == 1 ? '' : 's'}',
-                          style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontWeight: FontWeight.w500),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // List of Transactions
+                  // List of Transactions with Date Groups & Infinite Scroll
                   Expanded(
-                    child: _filteredPayments.isEmpty
+                    child: _payments.isEmpty
                         ? Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.search_off_outlined, size: 48, color: Colors.grey.shade400),
-                                const SizedBox(height: 12),
-                                Text(
-                                  _payments.isEmpty
-                                      ? 'No transactions yet'
-                                      : 'No matching transactions found',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  _payments.isEmpty
-                                      ? 'Add transactions to see them here'
-                                      : 'Try clearing your search or filters',
-                                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                                ),
-                              ],
+                            child: Padding(
+                              padding: const EdgeInsets.all(32),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: Icon(
+                                      Icons.search_off_rounded,
+                                      size: 40,
+                                      color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    _hasActiveFilters
+                                        ? 'No transactions match filters'
+                                        : 'No transactions yet',
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _hasActiveFilters
+                                        ? 'Try clearing active filters or adjusting the time range'
+                                        : 'Transactions will appear here once added or synced',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 13,
+                                      color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                    ),
+                                  ),
+                                  if (_hasActiveFilters) ...[
+                                    const SizedBox(height: 14),
+                                    OutlinedButton.icon(
+                                      icon: const Icon(Icons.refresh_rounded, size: 16),
+                                      label: const Text('Reset All Filters'),
+                                      onPressed: _resetAllFilters,
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           )
                         : ListView.builder(
-                            itemCount: _filteredPayments.length,
+                            controller: _scrollController,
+                            itemCount: _calculateTotalCount(dateGroups) + 1,
                             itemBuilder: (context, index) {
-                              final payment = _filteredPayments[index];
-                              return PaymentCard(
-                                payment: payment,
-                                onTap: () => _showEditDialog(payment),
-                                onEdit: () => _showEditDialog(payment),
-                                onDelete: () => _deletePayment(payment),
-                              );
+                              // Check if this is the pagination footer item
+                              final totalSliverCount = _calculateTotalCount(dateGroups);
+                              if (index == totalSliverCount) {
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 20),
+                                  child: Center(
+                                    child: _isLoadingMore
+                                        ? Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              SizedBox(
+                                                width: 16,
+                                                height: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  color: theme.colorScheme.primary,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                'Loading more transactions...',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: isDark
+                                                      ? const Color(0xFF94A3B8)
+                                                      : const Color(0xFF64748B),
+                                                ),
+                                              ),
+                                            ],
+                                          )
+                                        : (!_hasMore && _payments.isNotEmpty)
+                                            ? Row(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.check_circle_outline_rounded,
+                                                    size: 15,
+                                                    color: isDark
+                                                        ? const Color(0xFF64748B)
+                                                        : const Color(0xFF94A3B8),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    'All $_totalCount transactions loaded',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight: FontWeight.w500,
+                                                      color: isDark
+                                                          ? const Color(0xFF64748B)
+                                                          : const Color(0xFF94A3B8),
+                                                    ),
+                                                  ),
+                                                ],
+                                              )
+                                            : const SizedBox.shrink(),
+                                  ),
+                                );
+                              }
+
+                              int count = 0;
+                              for (final group in dateGroups) {
+                                if (index == count) {
+                                  return _buildGroupHeader(group, isDark);
+                                }
+                                count++;
+
+                                if (index < count + group.payments.length) {
+                                  final payment = group.payments[index - count];
+                                  return PaymentCard(
+                                    payment: payment,
+                                    onTap: () => _showEditDialog(payment),
+                                    onEdit: () => _showEditDialog(payment),
+                                    onDelete: () => _deletePayment(payment),
+                                    onToggleExcluded: (val) => _toggleExcludePayment(payment, val),
+                                    onAssignBudgetMonth: (bMonth) => _assignBudgetMonth(payment, bMonth),
+                                  );
+                                }
+                                count += group.payments.length;
+                              }
+                              return null;
                             },
                           ),
                   ),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildFilterChip(
+    String label, {
+    required VoidCallback onDeleted,
+    required bool isDark,
+    required ThemeData theme,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(right: 6),
+      padding: const EdgeInsets.only(left: 8, right: 2, top: 2, bottom: 2),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: isDark ? 0.4 : 0.6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          InkWell(
+            onTap: onDeleted,
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(2),
+              child: Icon(
+                Icons.close,
+                size: 14,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  int _calculateTotalCount(List<DateGroup> groups) {
+    return groups.fold<int>(0, (sum, g) => sum + 1 + g.payments.length);
+  }
+
+  Widget _buildGroupHeader(DateGroup group, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 18, right: 18, top: 14, bottom: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            group.displayTitle,
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -0.1,
+              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+            ),
+          ),
+          Row(
+            children: [
+              if (group.totalIncome > 0 && _selectedFilterType != 'Expense')
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '+₹${NumberFormat('#,##,###').format(group.totalIncome)}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ),
+              if (group.totalExpense > 0 && _selectedFilterType != 'Income')
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '-₹${NumberFormat('#,##,###').format(group.totalExpense)}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

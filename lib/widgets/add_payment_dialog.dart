@@ -26,6 +26,8 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
   String _selectedCategory = 'Food & Dining';
   PaymentMode _selectedPaymentMode = PaymentMode.upi;
   DateTime _selectedDate = DateTime.now();
+  bool _isExcludedFromBudget = false;
+  DateTime? _selectedBudgetMonth;
 
   @override
   void dispose() {
@@ -66,6 +68,122 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
     }
   }
 
+  String _getBudgetMonthDisplay() {
+    if (_selectedBudgetMonth == null ||
+        (_selectedBudgetMonth!.year == _selectedDate.year &&
+            _selectedBudgetMonth!.month == _selectedDate.month)) {
+      return 'Actual Month (${DateFormat('MMM yyyy').format(_selectedDate)})';
+    }
+    return '${DateFormat('MMMM yyyy').format(_selectedBudgetMonth!)} (Shifted)';
+  }
+
+  void _pickBudgetMonth() async {
+    final original = DateTime(_selectedDate.year, _selectedDate.month, 1);
+    final next = DateTime(_selectedDate.year, _selectedDate.month + 1, 1);
+    final prev = DateTime(_selectedDate.year, _selectedDate.month - 1, 1);
+
+    final choice = await showModalBottomSheet<DateTime?>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              const Text(
+                'Count In Budget Month',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              const Text(
+                'Select which monthly budget and calculations will include this transaction.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.history_toggle_off_rounded, color: Color(0xFF2563EB)),
+                title: Text('Actual Month (${DateFormat('MMMM yyyy').format(original)})'),
+                subtitle: const Text('Default for this payment date', style: TextStyle(fontSize: 11)),
+                trailing: (_selectedBudgetMonth == null ||
+                        (_selectedBudgetMonth!.year == original.year &&
+                            _selectedBudgetMonth!.month == original.month))
+                    ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                    : null,
+                onTap: () => Navigator.pop(ctx, original),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.arrow_forward_rounded, color: Color(0xFF7C3AED)),
+                title: Text('Next Month (${DateFormat('MMMM yyyy').format(next)})'),
+                subtitle: const Text('e.g. Month-end salary for next month', style: TextStyle(fontSize: 11)),
+                trailing: (_selectedBudgetMonth?.year == next.year && _selectedBudgetMonth?.month == next.month)
+                    ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                    : null,
+                onTap: () => Navigator.pop(ctx, next),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0284C7)),
+                title: Text('Previous Month (${DateFormat('MMMM yyyy').format(prev)})'),
+                subtitle: const Text('e.g. Delayed reimbursement', style: TextStyle(fontSize: 11)),
+                trailing: (_selectedBudgetMonth?.year == prev.year && _selectedBudgetMonth?.month == prev.month)
+                    ? const Icon(Icons.check_circle, color: Colors.green, size: 20)
+                    : null,
+                onTap: () => Navigator.pop(ctx, prev),
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.calendar_month_outlined, color: Color(0xFFEA580C)),
+                title: const Text('Custom Month...'),
+                subtitle: const Text('Select another year and month', style: TextStyle(fontSize: 11)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  final custom = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedBudgetMonth ?? _selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2035),
+                  );
+                  if (custom != null) {
+                    setState(() {
+                      _selectedBudgetMonth = DateTime(custom.year, custom.month, 1);
+                    });
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (choice != null) {
+      setState(() {
+        if (choice.year == _selectedDate.year && choice.month == _selectedDate.month) {
+          _selectedBudgetMonth = null;
+        } else {
+          _selectedBudgetMonth = DateTime(choice.year, choice.month, 1);
+        }
+      });
+    }
+  }
+
   void _savePayment() {
     if (_formKey.currentState!.validate()) {
       final payment = Payment(
@@ -82,6 +200,8 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
             ? _notesController.text.trim()
             : null,
         date: _selectedDate,
+        isExcludedFromBudget: _isExcludedFromBudget,
+        budgetMonth: _selectedBudgetMonth,
       );
 
       widget.onPaymentAdded(payment);
@@ -196,36 +316,36 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
               TextFormField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
-                  labelText: 'Title / Description *',
-                  hintText: isIncome ? 'e.g. Monthly Salary, Freelance project' : 'e.g. Swiggy Lunch, Grocery run',
+                  labelText: 'Description / Merchant *',
+                  hintText: 'e.g. Swiggy, Uber, Rent, Salary',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.description_outlined),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter description';
+                    return 'Please enter a description';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 12),
 
-              // Category Selector
+              // Category Dropdown
               DropdownButtonFormField<String>(
-                initialValue: availableCategories.contains(_selectedCategory)
-                    ? _selectedCategory
-                    : availableCategories.first,
+                initialValue: _selectedCategory,
                 decoration: InputDecoration(
-                  labelText: 'Category *',
+                  labelText: 'Category',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(Icons.category_outlined),
                 ),
                 items: availableCategories.map((category) {
                   return DropdownMenuItem(
                     value: category,
                     child: Row(
                       children: [
-                        Text(Category.getIcon(category), style: const TextStyle(fontSize: 18)),
-                        const SizedBox(width: 10),
-                        Text(category, style: const TextStyle(fontSize: 14)),
+                        Text(Category.getIcon(category)),
+                        const SizedBox(width: 8),
+                        Text(category),
                       ],
                     ),
                   );
@@ -236,7 +356,7 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Payment Mode & Date Pickers Row
+              // Payment Mode & Date Row
               Row(
                 children: [
                   Expanded(
@@ -279,6 +399,30 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
               ),
               const SizedBox(height: 12),
 
+              // Budget Month Selector Tile
+              InkWell(
+                onTap: _pickBudgetMonth,
+                borderRadius: BorderRadius.circular(12),
+                child: InputDecorator(
+                  decoration: InputDecoration(
+                    labelText: 'Count In Budget Month',
+                    helperText: 'Controls which month\'s budget & calculations include this transaction',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    prefixIcon: const Icon(Icons.calendar_month_outlined, color: Color(0xFF7C3AED)),
+                    suffixIcon: const Icon(Icons.keyboard_arrow_down_rounded),
+                  ),
+                  child: Text(
+                    _getBudgetMonthDisplay(),
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      fontWeight: _selectedBudgetMonth != null ? FontWeight.bold : FontWeight.normal,
+                      color: _selectedBudgetMonth != null ? const Color(0xFF7C3AED) : null,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // Account Reference Field
               TextFormField(
                 controller: _accountRefController,
@@ -296,6 +440,35 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
                 decoration: InputDecoration(
                   labelText: 'Notes (Optional)',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Exclude from Budget Toggle
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.4),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: SwitchListTile(
+                  title: const Text(
+                    'Exclude from Calculations',
+                    style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text(
+                    'Saved in history, but ignored in monthly balance and analytics.',
+                    style: TextStyle(fontSize: 11.5),
+                  ),
+                  secondary: const Icon(Icons.do_not_disturb_on_outlined, size: 22),
+                  value: _isExcludedFromBudget,
+                  dense: true,
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                  onChanged: (val) {
+                    setState(() => _isExcludedFromBudget = val);
+                  },
                 ),
               ),
               const SizedBox(height: 20),

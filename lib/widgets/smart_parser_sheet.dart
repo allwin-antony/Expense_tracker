@@ -292,23 +292,25 @@ class _SmartParserSheetState extends State<SmartParserSheet> {
                             });
                           },
                         ),
-                        // Confidence Badge
+                        // AI Authenticity Badge
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                           decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.teal.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.teal.shade300.withValues(alpha: 0.4)),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.check_circle, color: Colors.green, size: 14),
-                              const SizedBox(width: 4),
+                              const Icon(Icons.verified_user_outlined, color: Colors.teal, size: 14),
+                              const SizedBox(width: 5),
                               Text(
-                                '${((_parsedResult?.confidence ?? 0.9) * 100).toInt()}% Match',
-                                style: const TextStyle(
+                                'AI Verified • ${((_parsedResult?.confidence ?? 0.9) * 100).toInt()}% Match',
+                                style: TextStyle(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: Colors.green,
+                                  color: isDark ? Colors.tealAccent : Colors.teal.shade800,
                                 ),
                               ),
                             ],

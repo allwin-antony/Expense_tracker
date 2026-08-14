@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/sms_sync_service.dart';
 
@@ -15,27 +16,54 @@ class SmsSyncDialog extends StatefulWidget {
 }
 
 class _SmsSyncDialogState extends State<SmsSyncDialog> {
-  bool _isLoading = true;
+  SmsSyncRange _selectedRange = SmsSyncRange.thisMonth;
+  DateTimeRange? _customDateRange;
+
+  bool _isSyncing = false;
   double _progress = 0.0;
   String _statusMessage = 'Initializing...';
   SyncResult? _result;
 
-  @override
-  void initState() {
-    super.initState();
-    _startSync();
+  Future<void> _selectCustomRange() async {
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+      initialDateRange: _customDateRange ??
+          DateTimeRange(
+            start: DateTime.now().subtract(const Duration(days: 30)),
+            end: DateTime.now(),
+          ),
+      helpText: 'Select Date Range for SMS Sync',
+    );
+
+    if (picked != null) {
+      setState(() {
+        _customDateRange = picked;
+        _selectedRange = SmsSyncRange.customRange;
+      });
+    }
   }
 
   Future<void> _startSync() async {
+    HapticFeedback.mediumImpact();
     setState(() {
-      _isLoading = true;
+      _isSyncing = true;
       _progress = 0.0;
       _statusMessage = 'Reading SMS inbox...';
       _result = null;
     });
 
-    final result = await SmsSyncService.instance.syncMonthTransactions(
-      targetMonth: DateTime.now(),
+    final (start, end) = _selectedRange.getDates(customDateRange: _customDateRange);
+    final maxCount = _selectedRange == SmsSyncRange.allTime ? 3000 : 1500;
+
+    final result = await SmsSyncService.instance.syncTransactions(
+      startDate: start,
+      endDate: end,
+      maxCount: maxCount,
+      timeRangeLabel: _selectedRange == SmsSyncRange.customRange && _customDateRange != null
+          ? '${DateFormat('MMM d').format(_customDateRange!.start)} - ${DateFormat('MMM d, yyyy').format(_customDateRange!.end)}'
+          : _selectedRange.label,
       onProgress: (progress, status) {
         if (mounted) {
           setState(() {
@@ -48,7 +76,7 @@ class _SmsSyncDialogState extends State<SmsSyncDialog> {
 
     if (mounted) {
       setState(() {
-        _isLoading = false;
+        _isSyncing = false;
         _result = result;
       });
       if (result.isSuccess && result.newTransactionsAdded > 0) {
@@ -65,203 +93,403 @@ class _SmsSyncDialogState extends State<SmsSyncDialog> {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       backgroundColor: theme.scaffoldBackgroundColor,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icon
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: _isLoading
-                    ? theme.colorScheme.primaryContainer
-                    : (_result?.isSuccess == true
-                        ? Colors.green.withValues(alpha: 0.15)
-                        : Colors.red.withValues(alpha: 0.15)),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: _isLoading
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(strokeWidth: 2.5),
-                      )
-                    : Icon(
-                        _result?.isSuccess == true
-                            ? Icons.check_circle_outline
-                            : Icons.error_outline,
-                        color: _result?.isSuccess == true ? Colors.green : Colors.red,
-                        size: 32,
-                      ),
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Title
-            Text(
-              _isLoading
-                  ? 'Auto-Syncing Month\'s SMS'
-                  : (_result?.isSuccess == true ? 'Sync Complete!' : 'Sync Failed'),
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-
-            // Status message / Progress
-            if (_isLoading) ...[
-              Text(
-                _statusMessage,
-                style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: _progress > 0 ? _progress : null,
-                  minHeight: 6,
-                ),
-              ),
-            ] else if (_result != null && _result!.isSuccess) ...[
-              Text(
-                'Scanned current month\'s messages without freezing your device.',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 20),
-
-              // Stats Grid
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 440),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header Icon
               Container(
-                padding: const EdgeInsets.all(16),
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(16),
+                  color: _isSyncing
+                      ? theme.colorScheme.primaryContainer
+                      : (_result == null
+                          ? theme.colorScheme.primary.withValues(alpha: 0.12)
+                          : (_result!.isSuccess
+                              ? Colors.green.withValues(alpha: 0.15)
+                              : Colors.red.withValues(alpha: 0.15))),
+                  shape: BoxShape.circle,
                 ),
-                child: Column(
-                  children: [
-                    _buildStatRow('Messages Scanned', '${_result!.totalSmsRead}', Icons.mail_outline),
-                    const Divider(height: 16),
-                    _buildStatRow('Financial SMS Detected', '${_result!.financialSmsFound}', Icons.receipt_long_outlined),
-                    const Divider(height: 16),
-                    _buildStatRow(
-                      'New Transactions Added',
-                      '+${_result!.newTransactionsAdded}',
-                      Icons.add_circle_outline,
-                      valueColor: Colors.green,
-                      isBold: true,
+                child: Center(
+                  child: _isSyncing
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        )
+                      : Icon(
+                          _result == null
+                              ? Icons.sync_rounded
+                              : (_result!.isSuccess
+                                  ? Icons.check_circle_outline_rounded
+                                  : Icons.error_outline_rounded),
+                          color: _result == null
+                              ? theme.colorScheme.primary
+                              : (_result!.isSuccess ? Colors.green : Colors.red),
+                          size: 28,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 14),
+
+              // Title
+              Text(
+                _isSyncing
+                    ? 'Syncing SMS Messages...'
+                    : (_result == null
+                        ? 'Auto-Sync Bank SMS'
+                        : (_result!.isSuccess ? 'Sync Complete!' : 'Sync Failed')),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 19,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+
+              // State 1: Range Selection (Before Syncing)
+              if (!_isSyncing && _result == null) ...[
+                Text(
+                  'Choose the time period of SMS messages you want to scan and import.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+
+                // Range Selector Options
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
                     ),
-                    if (_result!.duplicatesSkipped > 0) ...[
-                      const Divider(height: 16),
-                      _buildStatRow(
-                        'Duplicates Skipped',
-                        '${_result!.duplicatesSkipped}',
-                        Icons.content_copy_outlined,
-                        valueColor: Colors.grey.shade600,
-                      ),
-                    ],
-                    if (_result!.totalExpenseAdded > 0 || _result!.totalIncomeAdded > 0) ...[
-                      const Divider(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text('New Expenses:', style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
-                          Text(
-                            '₹${NumberFormat('#,##,###.00').format(_result!.totalExpenseAdded)}',
-                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.red),
+                  ),
+                  child: Column(
+                    children: SmsSyncRange.values.map((range) {
+                      final isSelected = _selectedRange == range;
+                      final isCustom = range == SmsSyncRange.customRange;
+
+                      String subtitleText = range.subtitle;
+                      if (isCustom && _customDateRange != null) {
+                        subtitleText =
+                            '${DateFormat('MMM d').format(_customDateRange!.start)} - ${DateFormat('MMM d, yyyy').format(_customDateRange!.end)}';
+                      }
+
+                      return InkWell(
+                        onTap: () async {
+                          if (isCustom) {
+                            await _selectCustomRange();
+                          } else {
+                            setState(() => _selectedRange = range);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(16),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                          child: Row(
+                            children: [
+                              Icon(
+                                isSelected
+                                    ? Icons.radio_button_checked_rounded
+                                    : Icons.radio_button_off_rounded,
+                                size: 18,
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      range.label,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+                                        color: isSelected
+                                            ? theme.colorScheme.primary
+                                            : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                      ),
+                                    ),
+                                    Text(
+                                      subtitleText,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isCustom)
+                                Icon(
+                                  Icons.calendar_month_outlined,
+                                  size: 16,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                            ],
                           ),
-                        ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.sync_rounded, size: 18),
+                        label: const Text('Sync Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: _startSync,
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+
+              // State 2: Syncing in Progress
+              else if (_isSyncing) ...[
+                Text(
+                  _statusMessage,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 18),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: LinearProgressIndicator(
+                    value: _progress > 0 ? _progress : null,
+                    minHeight: 6,
+                    backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Running in a background isolate to keep your device smooth.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ]
+
+              // State 3: Sync Result Success
+              else if (_result != null && _result!.isSuccess) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Period: ${_result!.timeRangeLabel ?? _selectedRange.label}',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Stats Card
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildStatRow('Messages Scanned', '${_result!.totalSmsRead}', Icons.mail_outline),
+                      const Divider(height: 14),
+                      _buildStatRow('Financial SMS Detected', '${_result!.financialSmsFound}', Icons.receipt_long_outlined),
+                      const Divider(height: 14),
+                      _buildStatRow(
+                        'New Transactions Added',
+                        '+${_result!.newTransactionsAdded}',
+                        Icons.add_circle_outline,
+                        valueColor: Colors.green,
+                        isBold: true,
+                      ),
+                      if (_result!.duplicatesSkipped > 0) ...[
+                        const Divider(height: 14),
+                        _buildStatRow(
+                          'Duplicates Skipped',
+                          '${_result!.duplicatesSkipped}',
+                          Icons.content_copy_outlined,
+                          valueColor: Colors.grey.shade500,
+                        ),
+                      ],
+                      if (_result!.totalExpenseAdded > 0 || _result!.totalIncomeAdded > 0) ...[
+                        const Divider(height: 14),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Imported Expenses:',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              ),
+                            ),
+                            Text(
+                              '₹${NumberFormat('#,##,###.00').format(_result!.totalExpenseAdded)}',
+                              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: Colors.red),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+
+                // Action Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _result = null;
+                          });
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Sync Another'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                  ],
+                ),
+              ]
+
+              // State 4: Error State
+              else ...[
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.amber.shade300),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _result?.errorMessage ?? 'SMS permission is required to automatically detect bank messages.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton.icon(
+                        icon: const Icon(Icons.settings, size: 16),
+                        label: const Text('Open App Permissions in Settings'),
+                        onPressed: () async {
+                          await SmsSyncService.instance.openSettings();
+                        },
                       ),
                     ],
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Done button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
-                  child: const Text('View Transactions'),
                 ),
-              ),
-            ] else ...[
-              // Error / Permission state
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.amber.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.amber.shade300),
-                ),
-                child: Column(
+                const SizedBox(height: 16),
+                Row(
                   children: [
-                    Text(
-                      _result?.errorMessage ?? 'SMS permission is required to automatically detect bank messages.',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? Colors.amber.shade200 : Colors.amber.shade900,
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cancel'),
                       ),
-                      textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 10),
-                    TextButton.icon(
-                      icon: const Icon(Icons.settings, size: 16),
-                      label: const Text('Open App Permissions in Settings'),
-                      onPressed: () async {
-                        await SmsSyncService.instance.openSettings();
-                      },
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _startSync,
+                        child: const Text('Retry Sync'),
+                      ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cancel'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: _startSync,
-                      child: const Text('Retry Sync'),
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildStatRow(String label, String value, IconData icon,
-      {Color? valueColor, bool isBold = false}) {
+  Widget _buildStatRow(
+    String label,
+    String value,
+    IconData icon, {
+    Color? valueColor,
+    bool isBold = false,
+  }) {
     return Row(
       children: [
         Icon(icon, size: 16, color: Colors.grey.shade500),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(label, style: const TextStyle(fontSize: 13)),
+          child: Text(label, style: const TextStyle(fontSize: 12.5)),
         ),
         Text(
           value,
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 12.5,
             fontWeight: isBold ? FontWeight.bold : FontWeight.w600,
             color: valueColor,
           ),

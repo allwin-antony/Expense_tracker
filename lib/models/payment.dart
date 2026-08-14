@@ -93,6 +93,8 @@ class Payment {
   final double? confidence;
   final DateTime date;
   final String? notes;
+  final bool isExcludedFromBudget;
+  final DateTime? budgetMonth;
 
   Payment({
     this.id,
@@ -107,10 +109,20 @@ class Payment {
     this.confidence,
     required this.date,
     this.notes,
+    this.isExcludedFromBudget = false,
+    this.budgetMonth,
   });
 
   bool get isExpense => type == TransactionType.debit;
   bool get isIncome => type == TransactionType.credit;
+
+  /// The effective month this transaction is counted towards in budgets & analytics
+  DateTime get effectiveMonth =>
+      budgetMonth != null ? DateTime(budgetMonth!.year, budgetMonth!.month, 1) : DateTime(date.year, date.month, 1);
+
+  /// True if the user manually shifted this transaction to count in a different month
+  bool get hasShiftedBudgetMonth =>
+      budgetMonth != null && (budgetMonth!.year != date.year || budgetMonth!.month != date.month);
 
   Map<String, dynamic> toMap() {
     return {
@@ -126,6 +138,8 @@ class Payment {
       'confidence': confidence,
       'date': date.toIso8601String(),
       'notes': notes,
+      'isExcluded': isExcludedFromBudget ? 1 : 0,
+      'budgetMonth': budgetMonth?.toIso8601String(),
     };
   }
 
@@ -145,6 +159,8 @@ class Payment {
           ? DateTime.parse(map['date'] as String)
           : DateTime.now(),
       notes: map['notes'] as String?,
+      isExcludedFromBudget: (map['isExcluded'] == 1 || map['isExcluded'] == true),
+      budgetMonth: map['budgetMonth'] != null ? DateTime.parse(map['budgetMonth'] as String) : null,
     );
   }
 
@@ -161,6 +177,9 @@ class Payment {
     double? confidence,
     DateTime? date,
     String? notes,
+    bool? isExcludedFromBudget,
+    DateTime? budgetMonth,
+    bool clearBudgetMonth = false,
   }) {
     return Payment(
       id: id ?? this.id,
@@ -175,6 +194,8 @@ class Payment {
       confidence: confidence ?? this.confidence,
       date: date ?? this.date,
       notes: notes ?? this.notes,
+      isExcludedFromBudget: isExcludedFromBudget ?? this.isExcludedFromBudget,
+      budgetMonth: clearBudgetMonth ? null : (budgetMonth ?? this.budgetMonth),
     );
   }
 }

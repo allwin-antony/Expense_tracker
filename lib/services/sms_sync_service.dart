@@ -1,11 +1,106 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/payment.dart';
 import '../parser/message_parser_pipeline.dart';
 import 'database_service.dart';
+
+enum SmsSyncRange {
+  thisMonth,
+  lastMonth,
+  last30Days,
+  last90Days,
+  thisYear,
+  allTime,
+  customRange;
+
+  String get label {
+    switch (this) {
+      case SmsSyncRange.thisMonth:
+        return 'This Month';
+      case SmsSyncRange.lastMonth:
+        return 'Last Month';
+      case SmsSyncRange.last30Days:
+        return 'Last 30 Days';
+      case SmsSyncRange.last90Days:
+        return 'Last 3 Months (90 Days)';
+      case SmsSyncRange.thisYear:
+        return 'This Year';
+      case SmsSyncRange.allTime:
+        return 'Entire Inbox (All Time)';
+      case SmsSyncRange.customRange:
+        return 'Custom Date Range...';
+    }
+  }
+
+  String get subtitle {
+    switch (this) {
+      case SmsSyncRange.thisMonth:
+        return 'Current calendar month';
+      case SmsSyncRange.lastMonth:
+        return 'Previous calendar month';
+      case SmsSyncRange.last30Days:
+        return 'Past 30 days of transactions';
+      case SmsSyncRange.last90Days:
+        return 'Past 90 days of transactions';
+      case SmsSyncRange.thisYear:
+        return 'All transactions since Jan 1st';
+      case SmsSyncRange.allTime:
+        return 'Full inbox history (up to 3,000 SMS)';
+      case SmsSyncRange.customRange:
+        return 'Specific start and end dates';
+    }
+  }
+
+  (DateTime? start, DateTime? end) getDates({DateTimeRange? customDateRange}) {
+    final now = DateTime.now();
+    switch (this) {
+      case SmsSyncRange.thisMonth:
+        final start = DateTime(now.year, now.month, 1);
+        final end = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+        return (start, end);
+      case SmsSyncRange.lastMonth:
+        final start = DateTime(now.year, now.month - 1, 1);
+        final end = DateTime(now.year, now.month, 0, 23, 59, 59);
+        return (start, end);
+      case SmsSyncRange.last30Days:
+        final start = DateTime(now.year, now.month, now.day - 30);
+        final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        return (start, end);
+      case SmsSyncRange.last90Days:
+        final start = DateTime(now.year, now.month, now.day - 90);
+        final end = DateTime(now.year, now.month, now.day, 23, 59, 59);
+        return (start, end);
+      case SmsSyncRange.thisYear:
+        final start = DateTime(now.year, 1, 1);
+        final end = DateTime(now.year, 12, 31, 23, 59, 59);
+        return (start, end);
+      case SmsSyncRange.allTime:
+        return (null, null);
+      case SmsSyncRange.customRange:
+        if (customDateRange != null) {
+          final start = DateTime(
+            customDateRange.start.year,
+            customDateRange.start.month,
+            customDateRange.start.day,
+          );
+          final end = DateTime(
+            customDateRange.end.year,
+            customDateRange.end.month,
+            customDateRange.end.day,
+            23,
+            59,
+            59,
+          );
+          return (start, end);
+        }
+        return (null, null);
+    }
+  }
+}
 
 class SyncResult {
   final bool isSuccess;
@@ -16,6 +111,7 @@ class SyncResult {
   final double totalExpenseAdded;
   final double totalIncomeAdded;
   final String? errorMessage;
+  final String? timeRangeLabel;
 
   SyncResult({
     required this.isSuccess,
@@ -26,13 +122,13 @@ class SyncResult {
     this.totalExpenseAdded = 0.0,
     this.totalIncomeAdded = 0.0,
     this.errorMessage,
+    this.timeRangeLabel,
   });
 
   factory SyncResult.failure(String message) {
     return SyncResult(isSuccess: false, errorMessage: message);
   }
 }
-
 
 class SmsSyncService {
   static final SmsSyncService instance = SmsSyncService._();
@@ -86,9 +182,12 @@ class SmsSyncService {
     return parsedResults;
   }
 
-  /// Syncs all SMS for the given month in a background isolate without freezing the UI
-  Future<SyncResult> syncMonthTransactions({
-    DateTime? targetMonth,
+  /// Generic range sync with customizable start/end dates
+  Future<SyncResult> syncTransactions({
+    DateTime? startDate,
+    DateTime? endDate,
+    int maxCount = 2000,
+    String? timeRangeLabel,
     void Function(double progress, String status)? onProgress,
   }) async {
     try {
@@ -102,29 +201,35 @@ class SmsSyncService {
       final SmsQuery query = SmsQuery();
       final List<SmsMessage> messages = await query.querySms(
         kinds: [SmsQueryKind.inbox],
-        count: 1500, // Read up to 1500 inbox messages
+        count: maxCount,
       );
 
       if (messages.isEmpty) {
-        return SyncResult(isSuccess: true, totalSmsRead: 0);
+        return SyncResult(isSuccess: true, totalSmsRead: 0, timeRangeLabel: timeRangeLabel);
       }
 
-      final month = targetMonth ?? DateTime.now();
-      final startOfMonth = DateTime(month.year, month.month, 1);
-      final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+      // Filter messages strictly within the target range if specified
+      final List<SmsMessage> filteredSms;
+      if (startDate != null || endDate != null) {
+        filteredSms = messages.where((msg) {
+          final msgDate = msg.date;
+          if (msgDate == null) return false;
+          if (startDate != null && msgDate.isBefore(startDate.subtract(const Duration(seconds: 1)))) {
+            return false;
+          }
+          if (endDate != null && msgDate.isAfter(endDate.add(const Duration(seconds: 1)))) {
+            return false;
+          }
+          return true;
+        }).toList();
+      } else {
+        filteredSms = messages;
+      }
 
-      // Filter messages strictly within the target month range
-      final monthSms = messages.where((msg) {
-        final msgDate = msg.date;
-        if (msgDate == null) return false;
-        return msgDate.isAfter(startOfMonth.subtract(const Duration(seconds: 1))) &&
-            msgDate.isBefore(endOfMonth.add(const Duration(seconds: 1)));
-      }).toList();
-
-      onProgress?.call(0.4, 'Parsing ${monthSms.length} messages in background isolate...');
+      onProgress?.call(0.4, 'Parsing ${filteredSms.length} messages in background isolate...');
 
       // Prepare lightweight data map for background isolate
-      final rawList = monthSms.map((msg) => {
+      final rawList = filteredSms.map((msg) => {
             'body': msg.body ?? '',
             'timestamp': msg.date?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
             'sender': msg.address,
@@ -139,7 +244,7 @@ class SmsSyncService {
       onProgress?.call(0.7, 'Deduplicating against saved transactions...');
 
       // Fetch existing payments in DB to prevent duplicates
-      final existingPayments = await DatabaseService.instance.getPaymentsByMonth(month);
+      final existingPayments = await DatabaseService.instance.getAllPayments();
       final existingRawMessages = existingPayments
           .map((p) => p.rawMessage?.trim())
           .where((m) => m != null && m.isNotEmpty)
@@ -188,16 +293,35 @@ class SmsSyncService {
 
       return SyncResult(
         isSuccess: true,
-        totalSmsRead: monthSms.length,
+        totalSmsRead: filteredSms.length,
         financialSmsFound: parsedMaps.length,
         newTransactionsAdded: addedCount,
         duplicatesSkipped: duplicatesCount,
         totalExpenseAdded: totalExpense,
         totalIncomeAdded: totalIncome,
+        timeRangeLabel: timeRangeLabel,
       );
     } catch (e) {
       return SyncResult.failure('Error syncing SMS: $e');
     }
+  }
+
+  /// Syncs all SMS for the given month (backward-compatible convenience method)
+  Future<SyncResult> syncMonthTransactions({
+    DateTime? targetMonth,
+    void Function(double progress, String status)? onProgress,
+  }) async {
+    final month = targetMonth ?? DateTime.now();
+    final startOfMonth = DateTime(month.year, month.month, 1);
+    final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
+
+    return syncTransactions(
+      startDate: startOfMonth,
+      endDate: endOfMonth,
+      maxCount: 1500,
+      timeRangeLabel: 'This Month',
+      onProgress: onProgress,
+    );
   }
 
   /// Starts listening to real-time incoming SMS via native Android EventChannel

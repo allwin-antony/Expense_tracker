@@ -232,8 +232,17 @@ class MerchantCategorizer {
   static String cleanMerchantName(String raw) {
     var cleaned = raw.trim();
 
-    // Remove prefixes
-    cleaned = cleaned.replaceAll(RegExp(r'^(?:UPI\/[\d]+\/|POS\s+[\d]+\s+|VPA\s+|INFO:\s*|TO\s+|AT\s+)', caseSensitive: false), '');
+    // Remove prefixes (UPI, POS, VPA, NEFT, IMPS, RTGS references)
+    cleaned = cleaned.replaceAll(
+      RegExp(
+        r'^(?:UPI\/[\d]+\/|POS\s+[\d]+\s+|VPA\s+|INFO:\s*|TO\s+|AT\s+|FOR\s+|NEFT\s*(?:Cr|Dr)?[\-\s]*[A-Z0-9]+[\-\s]*)',
+        caseSensitive: false,
+      ),
+      '',
+    );
+
+    // Remove trailing bank/account transaction identifiers (e.g. -AXISP00821906005)
+    cleaned = cleaned.replaceAll(RegExp(r'[\-\s]+[A-Z]{4,5}[\dA-Z]{6,16}$', caseSensitive: false), '');
 
     // Extract VPA prefix
     if (cleaned.contains('@')) {
@@ -270,7 +279,10 @@ class MerchantCategorizer {
           confidence: 0.95,
         );
       }
-      if (_hasWord(fullMessage, 'salary') || _hasWord(fullMessage, 'payroll') || _hasWord(fullMessage, 'stipend')) {
+      if (_hasWord(fullMessage, 'salary') ||
+          _hasWord(fullMessage, 'payroll') ||
+          _hasWord(fullMessage, 'stipend') ||
+          fullMessage.toLowerCase().contains('neft cr')) {
         final merchant = rawMerchant.isNotEmpty ? cleanMerchantName(rawMerchant) : 'Salary';
         return CategorizationResult(
           cleanMerchant: merchant,
