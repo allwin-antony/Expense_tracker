@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../services/sms_sync_service.dart';
+import 'sms_permission_disclosure_dialog.dart';
 
 class SmsSyncDialog extends StatefulWidget {
   final VoidCallback onSyncCompleted;
@@ -47,6 +48,10 @@ class _SmsSyncDialogState extends State<SmsSyncDialog> {
 
   Future<void> _startSync() async {
     HapticFeedback.mediumImpact();
+
+    final hasPermission = await SmsPermissionDisclosureDialog.showDisclosureAndRequest(context);
+    if (!hasPermission || !mounted) return;
+
     setState(() {
       _isSyncing = true;
       _progress = 0.0;

@@ -9,6 +9,7 @@ import '../widgets/payment_card.dart';
 import '../widgets/add_payment_dialog.dart';
 import '../widgets/edit_payment_dialog.dart';
 import '../widgets/sms_sync_dialog.dart';
+import '../widgets/sms_permission_disclosure_dialog.dart';
 import '../widgets/shimmer_loading.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -17,10 +18,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, this.onNavigateToHistory});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  HomeScreenState createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   final ScrollController _scrollController = ScrollController();
 
   List<Payment> _payments = [];
@@ -33,6 +34,19 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isLoadingMore = false;
   bool _hasMore = true;
   final int _pageSize = 20;
+
+  /// Scrolls back to top smoothly and reloads home data
+  Future<void> scrollToTopAndRefresh() async {
+    HapticFeedback.mediumImpact();
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0.0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeOutCubic,
+      );
+    }
+    await _refreshData();
+  }
 
   @override
   void initState() {
@@ -158,8 +172,11 @@ class _HomeScreenState extends State<HomeScreen> {
     await _loadInitialData();
   }
 
-  void _showSmsSyncDialog() {
+  void _showSmsSyncDialog() async {
     HapticFeedback.selectionClick();
+    final hasPermission = await SmsPermissionDisclosureDialog.showDisclosureAndRequest(context);
+    if (!hasPermission || !mounted) return;
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -898,9 +915,216 @@ class _HomeScreenState extends State<HomeScreen> {
     return total;
   }
 
+  void _handleDateGroupAction(DateGroup group, String action) async {
+    final validIds = group.payments.where((p) => p.id != null).map((p) => p.id!).toList();
+    if (validIds.isEmpty) return;
+
+    if (action == 'exclude_day' || action == 'include_day') {
+      final isExcluded = action == 'exclude_day';
+      HapticFeedback.mediumImpact();
+      await DatabaseService.instance.toggleExcludePaymentsForBatch(validIds, isExcluded);
+
+      if (mounted) {
+        setState(() {
+          for (int i = 0; i < _payments.length; i++) {
+            if (validIds.contains(_payments[i].id)) {
+              _payments[i] = _payments[i].copyWith(isExcludedFromBudget: isExcluded);
+            }
+          }
+        });
+        _updateMonthlyMetrics();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(
+                  isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
+                  color: Colors.white,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    isExcluded
+                        ? 'Excluded ${validIds.length} transactions on ${group.displayTitle} from budget'
+                        : 'Included ${validIds.length} transactions on ${group.displayTitle} in budget',
+                  ),
+                ),
+              ],
+            ),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      }
+    } else if (action == 'shift_day_budget_month') {
+      _showBatchBudgetMonthPicker(group, validIds);
+    }
+  }
+
+  void _showBatchBudgetMonthPicker(DateGroup group, List<int> validIds) {
+    HapticFeedback.selectionClick();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final firstDate = group.payments.first.date;
+    final originalMonth = DateTime(firstDate.year, firstDate.month, 1);
+    final nextMonth = DateTime(firstDate.year, firstDate.month + 1, 1);
+    final prevMonth = DateTime(firstDate.year, firstDate.month - 1, 1);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : Colors.black12,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Shift ${group.displayTitle} (${validIds.length} Transactions)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16.5),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Assign all transactions on this date to count in a specific budget month.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.history_toggle_off_rounded, color: Color(0xFF2563EB)),
+                  title: Text(
+                    'Actual Month (${DateFormat('MMMM yyyy').format(originalMonth)})',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('Reset all to default payment date month', style: TextStyle(fontSize: 11.5)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _applyBatchBudgetMonth(group, validIds, null);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.arrow_forward_rounded, color: Color(0xFF7C3AED)),
+                  title: Text(
+                    'Next Month (${DateFormat('MMMM yyyy').format(nextMonth)})',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('e.g. Month-end transactions budgeted for next month', style: TextStyle(fontSize: 11.5)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _applyBatchBudgetMonth(group, validIds, nextMonth);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.arrow_back_rounded, color: Color(0xFF0284C7)),
+                  title: Text(
+                    'Previous Month (${DateFormat('MMMM yyyy').format(prevMonth)})',
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('e.g. Delayed transactions for previous month', style: TextStyle(fontSize: 11.5)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _applyBatchBudgetMonth(group, validIds, prevMonth);
+                  },
+                ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.calendar_month_outlined, color: Color(0xFFEA580C)),
+                  title: const Text(
+                    'Custom Month...',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: const Text('Select another year and month', style: TextStyle(fontSize: 11.5)),
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    final custom = await showDatePicker(
+                      context: context,
+                      initialDate: originalMonth,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2035),
+                    );
+                    if (custom != null) {
+                      _applyBatchBudgetMonth(group, validIds, DateTime(custom.year, custom.month, 1));
+                    }
+                  },
+                ),
+                const SizedBox(height: 10),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _applyBatchBudgetMonth(DateGroup group, List<int> validIds, DateTime? budgetMonth) async {
+    HapticFeedback.mediumImpact();
+    await DatabaseService.instance.setBudgetMonthForBatch(validIds, budgetMonth);
+
+    if (mounted) {
+      setState(() {
+        for (int i = 0; i < _payments.length; i++) {
+          if (validIds.contains(_payments[i].id)) {
+            _payments[i] = _payments[i].copyWith(
+              budgetMonth: budgetMonth,
+              clearBudgetMonth: budgetMonth == null,
+            );
+          }
+        }
+      });
+      _updateMonthlyMetrics();
+
+      final monthStr = budgetMonth != null
+          ? DateFormat('MMMM yyyy').format(budgetMonth)
+          : DateFormat('MMMM yyyy').format(group.payments.first.date);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.calendar_month_outlined, color: Colors.white, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Shifted ${validIds.length} transactions on ${group.displayTitle} to $monthStr budget'),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        ),
+      );
+    }
+  }
+
   Widget _buildDateGroupHeader(DateGroup group, bool isDark) {
+    final allExcluded = group.payments.every((p) => p.isExcludedFromBudget);
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(18, 14, 18, 6),
+      padding: const EdgeInsets.fromLTRB(18, 14, 12, 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -933,19 +1157,84 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-          if (group.totalExpense > 0 || group.totalIncome > 0)
-            Text(
-              group.totalExpense > 0
-                  ? '-₹${NumberFormat('#,##,###.00').format(group.totalExpense)}'
-                  : '+₹${NumberFormat('#,##,###.00').format(group.totalIncome)}',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: group.totalExpense > 0
-                    ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
-                    : (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)),
+          Row(
+            children: [
+              if (group.totalIncome > 0)
+                Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '+₹${NumberFormat('#,##,###').format(group.totalIncome)}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF16A34A),
+                    ),
+                  ),
+                ),
+              if (group.totalExpense > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFDC2626).withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    '-₹${NumberFormat('#,##,###').format(group.totalExpense)}',
+                    style: const TextStyle(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFDC2626),
+                    ),
+                  ),
+                ),
+              const SizedBox(width: 2),
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_horiz_rounded,
+                  size: 18,
+                  color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                ),
+                padding: EdgeInsets.zero,
+                tooltip: 'Day actions',
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'shift_day_budget_month',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.calendar_month_outlined, size: 17, color: Color(0xFF7C3AED)),
+                        const SizedBox(width: 10),
+                        Text('Shift Day (${group.payments.length}) to Month...', style: const TextStyle(fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: allExcluded ? 'include_day' : 'exclude_day',
+                    child: Row(
+                      children: [
+                        Icon(
+                          allExcluded ? Icons.notifications_active_outlined : Icons.do_not_disturb_on_outlined,
+                          size: 17,
+                          color: allExcluded ? const Color(0xFF2563EB) : const Color(0xFFEAB308),
+                        ),
+                        const SizedBox(width: 10),
+                        Text(
+                          allExcluded ? 'Include Day in Budget' : 'Exclude Day from Budget',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (val) => _handleDateGroupAction(group, val),
               ),
-            ),
+            ],
+          ),
         ],
       ),
     );

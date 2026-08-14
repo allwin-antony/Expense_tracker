@@ -50,9 +50,9 @@ class DateGroupHelper {
 
       String title;
       if (key == todayKey) {
-        title = 'Today';
+        title = 'Today • ${DateFormat('d MMM').format(date)}';
       } else if (key == yesterdayKey) {
-        title = 'Yesterday';
+        title = 'Yesterday • ${DateFormat('d MMM').format(date)}';
       } else if (date.year == now.year) {
         title = _dayNameFormat.format(date);
       } else {

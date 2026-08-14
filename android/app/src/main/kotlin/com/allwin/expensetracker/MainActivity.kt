@@ -1,11 +1,11 @@
-package com.finance.expense_tracker
+package com.allwin.expensetracker
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 
 class MainActivity : FlutterActivity() {
-    private val SMS_EVENT_CHANNEL = "com.finance.expense_tracker/sms_stream"
+    private val SMS_EVENT_CHANNEL = "com.allwin.expensetracker/sms_stream"
     private var eventSink: EventChannel.EventSink? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {

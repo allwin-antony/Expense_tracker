@@ -17,6 +17,9 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
 
+  final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
+  final GlobalKey<HistoryScreenState> _historyKey = GlobalKey<HistoryScreenState>();
+
   String? _historyCategory;
   String? _historyType;
   DateTime? _historyMonth;
@@ -27,6 +30,13 @@ class _MainScreenState extends State<MainScreen> {
       setState(() {
         _selectedIndex = index;
       });
+    } else {
+      // Re-tapped the active tab: scroll to top and reload
+      if (index == 0) {
+        _homeKey.currentState?.scrollToTopAndRefresh();
+      } else if (index == 1) {
+        _historyKey.currentState?.scrollToTopAndRefresh();
+      }
     }
   }
 
@@ -67,9 +77,11 @@ class _MainScreenState extends State<MainScreen> {
         index: _selectedIndex,
         children: [
           HomeScreen(
+            key: _homeKey,
             onNavigateToHistory: () => _onItemTapped(1),
           ),
           HistoryScreen(
+            key: _historyKey,
             initialCategory: _historyCategory,
             initialFilterType: _historyType,
             initialMonth: _historyMonth,

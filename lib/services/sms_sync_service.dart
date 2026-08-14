@@ -135,7 +135,7 @@ class SmsSyncService {
   SmsSyncService._();
 
   static const EventChannel _smsEventChannel =
-      EventChannel('com.finance.expense_tracker/sms_stream');
+      EventChannel('com.allwin.expensetracker/sms_stream');
   StreamSubscription? _liveSmsSubscription;
 
   /// Request SMS read and receive permissions gracefully

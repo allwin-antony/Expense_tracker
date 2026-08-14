@@ -177,7 +177,10 @@ class _PaymentCardState extends State<PaymentCard> {
     final isDark = theme.brightness == Brightness.dark;
     final isExcluded = widget.payment.isExcludedFromBudget;
     final isIncome = widget.payment.type == TransactionType.credit;
-    final timeFormatter = DateFormat('h:mm a');
+    final isCurrentYear = widget.payment.date.year == DateTime.now().year;
+    final dateTimeFormatter = isCurrentYear
+        ? DateFormat('d MMM, h:mm a')
+        : DateFormat('d MMM yy, h:mm a');
 
     final amountColor = isExcluded
         ? (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8))
@@ -395,11 +398,11 @@ class _PaymentCardState extends State<PaymentCard> {
                             ),
                           Text('•', style: TextStyle(color: Colors.grey.shade500, fontSize: 10)),
                           Text(
-                            timeFormatter.format(widget.payment.date),
+                            dateTimeFormatter.format(widget.payment.date),
                             style: TextStyle(
-                              color: Colors.grey.shade500,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                               fontSize: 11,
-                              fontWeight: FontWeight.w400,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ],

@@ -290,6 +290,18 @@ class DatabaseService {
     notifyDataChanged();
   }
 
+  /// Batch assign budget month for a list of transaction IDs (e.g. for an entire day)
+  Future<void> setBudgetMonthForBatch(List<int> ids, DateTime? budgetMonth) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    await db.rawUpdate(
+      'UPDATE payments SET budgetMonth = ? WHERE id IN ($placeholders)',
+      [budgetMonth?.toIso8601String(), ...ids],
+    );
+    notifyDataChanged();
+  }
+
   /// Quick toggle for excluding/including a transaction from budget calculations
   Future<void> toggleExcludePayment(int id, bool isExcluded) async {
     final db = await database;
@@ -298,6 +310,18 @@ class DatabaseService {
       {'isExcluded': isExcluded ? 1 : 0},
       where: 'id = ?',
       whereArgs: [id],
+    );
+    notifyDataChanged();
+  }
+
+  /// Batch toggle exclude/include for a list of transaction IDs (e.g. for an entire day)
+  Future<void> toggleExcludePaymentsForBatch(List<int> ids, bool isExcluded) async {
+    if (ids.isEmpty) return;
+    final db = await database;
+    final placeholders = List.filled(ids.length, '?').join(',');
+    await db.rawUpdate(
+      'UPDATE payments SET isExcluded = ? WHERE id IN ($placeholders)',
+      [isExcluded ? 1 : 0, ...ids],
     );
     notifyDataChanged();
   }

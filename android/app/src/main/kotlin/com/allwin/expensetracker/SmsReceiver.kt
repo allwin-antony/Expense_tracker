@@ -1,4 +1,4 @@
-package com.finance.expense_tracker
+package com.allwin.expensetracker
 
 import android.content.BroadcastReceiver
 import android.content.Context
