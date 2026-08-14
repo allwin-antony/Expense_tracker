@@ -550,9 +550,13 @@ class _PaymentCardState extends State<PaymentCard> {
       return cardContent;
     }
 
-    // Dismissible with swipe actions
+    // Dismissible with swipe actions (75% drag threshold prevents accidental swipes while scrolling)
     return Dismissible(
       key: ValueKey('payment_${widget.payment.id ?? widget.payment.date.microsecondsSinceEpoch}'),
+      dismissThresholds: const {
+        DismissDirection.startToEnd: 0.75,
+        DismissDirection.endToStart: 0.75,
+      },
       direction: widget.onDelete != null
           ? (widget.onEdit != null
               ? DismissDirection.horizontal

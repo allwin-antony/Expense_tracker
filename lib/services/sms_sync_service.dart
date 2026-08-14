@@ -256,6 +256,8 @@ class SmsSyncService {
       double totalExpense = 0.0;
       double totalIncome = 0.0;
 
+      final List<Payment> newPaymentsToInsert = [];
+
       for (final map in parsedMaps) {
         final payment = Payment.fromMap(map);
         final raw = payment.rawMessage?.trim();
@@ -277,7 +279,7 @@ class SmsSyncService {
         if (isDuplicate) {
           duplicatesCount++;
         } else {
-          await DatabaseService.instance.addPayment(payment);
+          newPaymentsToInsert.add(payment);
           existingPayments.add(payment);
           if (raw != null) existingRawMessages.add(raw);
 
@@ -288,6 +290,11 @@ class SmsSyncService {
             totalIncome += payment.amount;
           }
         }
+      }
+
+      // Batch insert into SQLite atomically in a single transaction (no UI flicker)
+      if (newPaymentsToInsert.isNotEmpty) {
+        await DatabaseService.instance.addPaymentsBatch(newPaymentsToInsert);
       }
 
       onProgress?.call(1.0, 'Sync complete!');

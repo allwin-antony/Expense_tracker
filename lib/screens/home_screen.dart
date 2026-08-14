@@ -22,7 +22,7 @@ class HomeScreen extends StatefulWidget {
   HomeScreenState createState() => HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
 
   List<Payment> _payments = [];
@@ -52,18 +52,57 @@ class HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadInitialData();
     _scrollController.addListener(_onScroll);
     _initLiveSmsListener();
+    _quickSyncAndRefresh();
     DatabaseService.instance.dataChangeNotifier.addListener(_onExternalDataChanged);
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     DatabaseService.instance.dataChangeNotifier.removeListener(_onExternalDataChanged);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _quickSyncAndRefresh();
+    }
+  }
+
+  Future<void> _quickSyncAndRefresh() async {
+    if (!await SmsSyncService.instance.hasPermission()) return;
+    final result = await SmsSyncService.instance.syncTransactions(
+      startDate: DateTime.now().subtract(const Duration(days: 2)),
+      maxCount: 50,
+    );
+    if (result.newTransactionsAdded > 0 && mounted) {
+      _refreshData();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.sync_rounded, color: Colors.greenAccent, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Auto-synced ${result.newTransactionsAdded} new transaction(s)!',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _onExternalDataChanged() {

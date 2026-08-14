@@ -96,11 +96,22 @@ class DatabaseService {
     );
   }
 
-  Future<int> addPayment(Payment payment) async {
+  Future<int> addPayment(Payment payment, {bool notify = true}) async {
     final db = await database;
     final id = await db.insert('payments', payment.toMap());
-    notifyDataChanged();
+    if (notify) notifyDataChanged();
     return id;
+  }
+
+  Future<void> addPaymentsBatch(List<Payment> payments, {bool notify = true}) async {
+    if (payments.isEmpty) return;
+    final db = await database;
+    final batch = db.batch();
+    for (final p in payments) {
+      batch.insert('payments', p.toMap());
+    }
+    await batch.commit(noResult: true);
+    if (notify) notifyDataChanged();
   }
 
   Future<List<Payment>> getAllPayments() async {
