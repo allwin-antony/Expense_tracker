@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import '../models/payment.dart';
 import '../models/category.dart';
+import '../models/payment.dart';
 
 class EditPaymentDialog extends StatefulWidget {
   final Payment payment;
@@ -19,241 +19,332 @@ class EditPaymentDialog extends StatefulWidget {
 
 class _EditPaymentDialogState extends State<EditPaymentDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _amountController;
-  late final TextEditingController _descriptionController;
-  late final TextEditingController _notesController;
+  late TextEditingController _descriptionController;
+  late TextEditingController _amountController;
+  late TextEditingController _accountRefController;
+  late TextEditingController _notesController;
+
+  late TransactionType _selectedType;
   late String _selectedCategory;
+  late PaymentMode _selectedPaymentMode;
   late DateTime _selectedDate;
 
   @override
   void initState() {
     super.initState();
-    _amountController = TextEditingController(
-      text: widget.payment.amount.toString(),
-    );
-    _descriptionController = TextEditingController(
-      text: widget.payment.description,
-    );
+    _descriptionController = TextEditingController(text: widget.payment.description);
+    _amountController = TextEditingController(text: widget.payment.amount.toStringAsFixed(2));
+    _accountRefController = TextEditingController(text: widget.payment.accountReference ?? '');
     _notesController = TextEditingController(text: widget.payment.notes ?? '');
+    _selectedType = widget.payment.type;
     _selectedCategory = widget.payment.category;
+    _selectedPaymentMode = widget.payment.paymentMode;
     _selectedDate = widget.payment.date;
   }
 
   @override
   void dispose() {
-    _amountController.dispose();
     _descriptionController.dispose();
+    _amountController.dispose();
+    _accountRefController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
-  void _selectDate() async {
-    final date = await showDatePicker(
+  Future<void> _selectDate(BuildContext context) async {
+    final pickedDate = await showDatePicker(
       context: context,
       initialDate: _selectedDate,
       firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      lastDate: DateTime(2101),
     );
-
-    if (date != null) {
-      final time = await showTimePicker(
+    if (pickedDate != null && mounted) {
+      final pickedTime = await showTimePicker(
         context: context,
         initialTime: TimeOfDay.fromDateTime(_selectedDate),
       );
-
-      if (time != null) {
+      if (pickedTime != null) {
         setState(() {
           _selectedDate = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
           );
+        });
+      } else {
+        setState(() {
+          _selectedDate = pickedDate;
         });
       }
     }
   }
 
-  void _updatePayment() {
+  void _savePayment() {
     if (_formKey.currentState!.validate()) {
       final updatedPayment = widget.payment.copyWith(
-        description: _descriptionController.text.trim().isEmpty
-            ? 'Payment'
-            : _descriptionController.text.trim(),
-        amount: double.parse(_amountController.text),
+        description: _descriptionController.text.trim(),
+        amount: double.parse(_amountController.text.trim()),
+        type: _selectedType,
         category: _selectedCategory,
+        paymentMode: _selectedPaymentMode,
+        accountReference: _accountRefController.text.trim().isNotEmpty
+            ? _accountRefController.text.trim()
+            : null,
+        notes: _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
         date: _selectedDate,
-        notes: _notesController.text.trim().isEmpty
-            ? null
-            : _notesController.text.trim(),
       );
 
       widget.onPaymentUpdated(updatedPayment);
       Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Payment updated: ${updatedPayment.description}'),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final dateFormatter = DateFormat('MMM dd, yyyy');
-    final timeFormatter = DateFormat('h:mm a');
+    final isIncome = _selectedType == TransactionType.credit;
+    final availableCategories = isIncome
+        ? Category.incomeCategories
+        : Category.expenseCategories;
 
     return Container(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
+      decoration: BoxDecoration(
+        color: theme.scaffoldBackgroundColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: DraggableScrollableSheet(
-        initialChildSize: 0.8,
-        minChildSize: 0.5,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) {
-          return Container(
-            padding: const EdgeInsets.all(24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      padding: EdgeInsets.only(
+        left: 20,
+        right: 20,
+        top: 20,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+      ),
+      child: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Handle
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Title
+              Text(
+                'Edit Transaction',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Expense / Income Segmented Toggle
+              SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<TransactionType>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TransactionType.debit,
+                      label: Text('Expense'),
+                      icon: Icon(Icons.arrow_upward, size: 16),
+                    ),
+                    ButtonSegment(
+                      value: TransactionType.credit,
+                      label: Text('Income'),
+                      icon: Icon(Icons.arrow_downward, size: 16),
+                    ),
+                  ],
+                  selected: {_selectedType},
+                  onSelectionChanged: (set) {
+                    setState(() {
+                      _selectedType = set.first;
+                      if (!availableCategories.contains(_selectedCategory)) {
+                        _selectedCategory = _selectedType == TransactionType.credit
+                            ? 'Salary'
+                            : 'Food & Dining';
+                      }
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Amount Field
+              TextFormField(
+                controller: _amountController,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isIncome ? Colors.green : theme.colorScheme.primary,
+                ),
+                decoration: InputDecoration(
+                  labelText: 'Amount *',
+                  prefixText: '₹ ',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter amount';
+                  }
+                  if (double.tryParse(value.trim()) == null || double.parse(value.trim()) <= 0) {
+                    return 'Enter a valid amount greater than 0';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Description Field
+              TextFormField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  labelText: 'Title / Description *',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter description';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Category Selector
+              DropdownButtonFormField<String>(
+                initialValue: availableCategories.contains(_selectedCategory)
+                    ? _selectedCategory
+                    : availableCategories.first,
+                decoration: InputDecoration(
+                  labelText: 'Category *',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                items: availableCategories.map((category) {
+                  return DropdownMenuItem(
+                    value: category,
+                    child: Row(
+                      children: [
+                        Text(Category.getIcon(category), style: const TextStyle(fontSize: 18)),
+                        const SizedBox(width: 10),
+                        Text(category, style: const TextStyle(fontSize: 14)),
+                      ],
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _selectedCategory = value);
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // Payment Mode & Date Pickers Row
+              Row(
                 children: [
-                  Text(
-                    'Edit Payment',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
+                  Expanded(
+                    child: DropdownButtonFormField<PaymentMode>(
+                      initialValue: _selectedPaymentMode,
+                      decoration: InputDecoration(
+                        labelText: 'Payment Mode',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: PaymentMode.values.map((mode) {
+                        return DropdownMenuItem(
+                          value: mode,
+                          child: Text(mode.displayName, style: const TextStyle(fontSize: 13)),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) setState(() => _selectedPaymentMode = value);
+                      },
                     ),
                   ),
-
-                  const SizedBox(height: 24),
-
-                  TextFormField(
-                    controller: _amountController,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Amount',
-                      prefixText: '₹ ',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter an amount';
-                      }
-                      final amount = double.tryParse(value);
-                      if (amount == null || amount <= 0) {
-                        return 'Please enter a valid amount';
-                      }
-                      return null;
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _descriptionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Description (Optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCategory,
-                    decoration: const InputDecoration(
-                      labelText: 'Category',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: Category.defaultCategories.map((category) {
-                      return DropdownMenuItem(
-                        value: category,
-                        child: Row(
-                          children: [
-                            Text(Category.getIcon(category)),
-                            const SizedBox(width: 8),
-                            Text(category),
-                          ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => _selectDate(context),
+                      borderRadius: BorderRadius.circular(12),
+                      child: InputDecorator(
+                        decoration: InputDecoration(
+                          labelText: 'Date',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          suffixIcon: const Icon(Icons.calendar_today, size: 18),
                         ),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() => _selectedCategory = value!);
-                    },
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  InkWell(
-                    onTap: _selectDate,
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Date & Time',
-                        border: OutlineInputBorder(),
-                        suffixIcon: Icon(Icons.calendar_today),
-                      ),
-                      child: Text(
-                        '${dateFormatter.format(_selectedDate)} at ${timeFormatter.format(_selectedDate)}',
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  TextFormField(
-                    controller: _notesController,
-                    decoration: const InputDecoration(
-                      labelText: 'Notes (Optional)',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 2,
-                  ),
-
-                  const Spacer(),
-
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: const Text('Cancel'),
+                        child: Text(
+                          DateFormat('MMM dd, yyyy').format(_selectedDate),
+                          style: const TextStyle(fontSize: 13),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: _updatePayment,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: theme.colorScheme.primary,
-                            foregroundColor: theme.colorScheme.onPrimary,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: const Text(
-                            'Update Payment',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          );
-        },
+              const SizedBox(height: 12),
+
+              // Account Reference Field
+              TextFormField(
+                controller: _accountRefController,
+                decoration: InputDecoration(
+                  labelText: 'Account / Card (Optional)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // Notes Field
+              TextFormField(
+                controller: _notesController,
+                decoration: InputDecoration(
+                  labelText: 'Notes (Optional)',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Action Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _savePayment,
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        backgroundColor: isIncome ? Colors.green : theme.colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

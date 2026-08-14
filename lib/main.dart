@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'services/database_service.dart';
-import 'services/upi_apps_service.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
@@ -9,9 +8,6 @@ void main() async {
 
   // Initialize database
   await DatabaseService.instance.database;
-
-  // Initialize UPI apps data on startup
-  await UPIAppsService.instance.fetchAndSaveUPIApps();
 
   runApp(const BudgetTrackerApp());
 }
@@ -27,7 +23,7 @@ class BudgetTrackerApp extends StatelessWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1976D2),
+          seedColor: const Color(0xFF1565C0),
           brightness: Brightness.light,
         ),
         appBarTheme: const AppBarTheme(
@@ -36,24 +32,16 @@ class BudgetTrackerApp extends StatelessWidget {
           systemOverlayStyle: SystemUiOverlayStyle.dark,
         ),
         cardTheme: CardThemeData(
-          elevation: 2,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1976D2),
+          seedColor: const Color(0xFF1565C0),
           brightness: Brightness.dark,
         ),
         appBarTheme: const AppBarTheme(
@@ -62,17 +50,9 @@ class BudgetTrackerApp extends StatelessWidget {
           systemOverlayStyle: SystemUiOverlayStyle.light,
         ),
         cardTheme: CardThemeData(
-          elevation: 2,
+          elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            borderRadius: BorderRadius.circular(16),
           ),
         ),
       ),

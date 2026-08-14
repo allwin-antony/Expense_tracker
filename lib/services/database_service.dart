@@ -20,19 +20,47 @@ class DatabaseService {
 
     return await openDatabase(
       databasePath,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE payments(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             description TEXT NOT NULL,
             amount REAL NOT NULL,
+            type TEXT NOT NULL DEFAULT 'debit',
             category TEXT NOT NULL,
+            paymentMode TEXT NOT NULL DEFAULT 'upi',
+            source TEXT NOT NULL DEFAULT 'manual',
+            accountReference TEXT,
+            rawMessage TEXT,
+            confidence REAL,
             date TEXT NOT NULL,
-            notes TEXT,
-            isInitiated INTEGER NOT NULL DEFAULT 0
+            notes TEXT
           )
         ''');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          // Add columns for v2 migration gracefully
+          try {
+            await db.execute("ALTER TABLE payments ADD COLUMN type TEXT NOT NULL DEFAULT 'debit'");
+          } catch (_) {}
+          try {
+            await db.execute("ALTER TABLE payments ADD COLUMN paymentMode TEXT NOT NULL DEFAULT 'upi'");
+          } catch (_) {}
+          try {
+            await db.execute("ALTER TABLE payments ADD COLUMN source TEXT NOT NULL DEFAULT 'manual'");
+          } catch (_) {}
+          try {
+            await db.execute("ALTER TABLE payments ADD COLUMN accountReference TEXT");
+          } catch (_) {}
+          try {
+            await db.execute("ALTER TABLE payments ADD COLUMN rawMessage TEXT");
+          } catch (_) {}
+          try {
+            await db.execute("ALTER TABLE payments ADD COLUMN confidence REAL");
+          } catch (_) {}
+        }
       },
     );
   }
@@ -52,14 +80,14 @@ class DatabaseService {
     final db = await database;
     final startOfMonth = DateTime(month.year, month.month, 1);
     final endOfMonth = DateTime(month.year, month.month + 1, 0, 23, 59, 59);
-    
+
     final data = await db.query(
       'payments',
       where: 'date BETWEEN ? AND ?',
       whereArgs: [startOfMonth.toIso8601String(), endOfMonth.toIso8601String()],
       orderBy: 'date DESC',
     );
-    
+
     return data.map((e) => Payment.fromMap(e)).toList();
   }
 
@@ -82,20 +110,38 @@ class DatabaseService {
     );
   }
 
-  Future<Map<String, double>> getCategoryTotals(DateTime month) async {
+  Future<double> getTotalExpenseForMonth(DateTime month) async {
     final payments = await getPaymentsByMonth(month);
-    final Map<String, double> categoryTotals = {};
-    
-    for (final payment in payments) {
-      categoryTotals[payment.category] = 
-          (categoryTotals[payment.category] ?? 0) + payment.amount;
-    }
-    
-    return categoryTotals;
+    return payments
+        .where((p) => p.type == TransactionType.debit)
+        .fold<double>(0.0, (sum, payment) => sum + payment.amount);
   }
 
-  Future<double> getTotalForMonth(DateTime month) async {
+  Future<double> getTotalIncomeForMonth(DateTime month) async {
     final payments = await getPaymentsByMonth(month);
-    return payments.fold<double>(0.0, (sum, payment) => sum + payment.amount);
+    return payments
+        .where((p) => p.type == TransactionType.credit)
+        .fold<double>(0.0, (sum, payment) => sum + payment.amount);
+  }
+
+  Future<double> getNetBalanceForMonth(DateTime month) async {
+    final income = await getTotalIncomeForMonth(month);
+    final expense = await getTotalExpenseForMonth(month);
+    return income - expense;
+  }
+
+  Future<Map<String, double>> getCategoryTotals(
+    DateTime month, {
+    TransactionType type = TransactionType.debit,
+  }) async {
+    final payments = await getPaymentsByMonth(month);
+    final Map<String, double> categoryTotals = {};
+
+    for (final payment in payments.where((p) => p.type == type)) {
+      categoryTotals[payment.category] =
+          (categoryTotals[payment.category] ?? 0) + payment.amount;
+    }
+
+    return categoryTotals;
   }
 }

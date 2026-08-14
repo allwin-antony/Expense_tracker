@@ -15,8 +15,12 @@ class StatisticsScreen extends StatefulWidget {
 class _StatisticsScreenState extends State<StatisticsScreen> {
   DateTime _selectedMonth = DateTime.now();
   List<Payment> _monthPayments = [];
-  Map<String, double> _categoryTotals = {};
+  Map<String, double> _expenseCategoryTotals = {};
+  Map<String, double> _incomeCategoryTotals = {};
+  double _totalExpense = 0.0;
+  double _totalIncome = 0.0;
   bool _isLoading = true;
+  TransactionType _chartType = TransactionType.debit;
 
   @override
   void initState() {
@@ -28,16 +32,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final payments = await DatabaseService.instance.getPaymentsByMonth(
+      final payments = await DatabaseService.instance.getPaymentsByMonth(_selectedMonth);
+      final expenseTotals = await DatabaseService.instance.getCategoryTotals(
         _selectedMonth,
+        type: TransactionType.debit,
       );
-      final categoryTotals = await DatabaseService.instance.getCategoryTotals(
+      final incomeTotals = await DatabaseService.instance.getCategoryTotals(
         _selectedMonth,
+        type: TransactionType.credit,
       );
+      final expense = await DatabaseService.instance.getTotalExpenseForMonth(_selectedMonth);
+      final income = await DatabaseService.instance.getTotalIncomeForMonth(_selectedMonth);
 
       setState(() {
         _monthPayments = payments;
-        _categoryTotals = categoryTotals;
+        _expenseCategoryTotals = expenseTotals;
+        _incomeCategoryTotals = incomeTotals;
+        _totalExpense = expense;
+        _totalIncome = income;
         _isLoading = false;
       });
     } catch (e) {
@@ -56,287 +68,327 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     _loadMonthData();
   }
 
-  double get totalSpent =>
-      _monthPayments.fold(0.0, (sum, payment) => sum + payment.amount);
-
-  double get dailyAverage {
+  double get dailyAverageExpense {
     final daysInMonth = DateTime(
       _selectedMonth.year,
       _selectedMonth.month + 1,
       0,
     ).day;
-    return totalSpent / daysInMonth;
+    return _totalExpense / daysInMonth;
   }
-
-  List<Color> get chartColors => [
-    const Color(0xFF2196F3),
-    const Color(0xFF4CAF50),
-    const Color(0xFFFF9800),
-    const Color(0xFF9C27B0),
-    const Color(0xFFF44336),
-    const Color(0xFF00BCD4),
-    const Color(0xFFFFEB3B),
-    const Color(0xFF795548),
-    const Color(0xFF607D8B),
-    const Color(0xFFE91E63),
-  ];
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final monthName = DateFormat('MMMM yyyy').format(_selectedMonth);
-    final isCurrentMonth =
-        _selectedMonth.month == DateTime.now().month &&
+    final isCurrentMonth = _selectedMonth.month == DateTime.now().month &&
         _selectedMonth.year == DateTime.now().year;
+
+    final activeTotals = _chartType == TransactionType.debit
+        ? _expenseCategoryTotals
+        : _incomeCategoryTotals;
+    final activeTotalAmount = _chartType == TransactionType.debit
+        ? _totalExpense
+        : _totalIncome;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Statistics'),
-        backgroundColor: Colors.transparent,
+        title: const Text('Financial Analytics', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Month Selector
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+          : RefreshIndicator(
+              onRefresh: _loadMonthData,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Month Navigator
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           IconButton(
                             onPressed: () => _changeMonth(-1),
                             icon: const Icon(Icons.chevron_left),
+                            tooltip: 'Previous month',
                           ),
                           Text(
                             monthName,
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           IconButton(
-                            onPressed: isCurrentMonth
-                                ? null
-                                : () => _changeMonth(1),
+                            onPressed: isCurrentMonth ? null : () => _changeMonth(1),
                             icon: const Icon(Icons.chevron_right),
+                            tooltip: 'Next month',
                           ),
                         ],
                       ),
                     ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Statistics Overview
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Total Spent',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.7),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '₹${NumberFormat('#,##,###.00').format(totalSpent)}',
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Transactions',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: theme.colorScheme.onSurface
-                                        .withValues(alpha: 0.7),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${_monthPayments.length}',
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(
-                                        fontWeight: FontWeight.bold,
-                                        color: theme.colorScheme.secondary,
-                                      ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Daily Average',
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.7,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            '₹${NumberFormat('#,##,###.00').format(dailyAverage)}',
-                            style: theme.textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: theme.colorScheme.tertiary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  if (_categoryTotals.isNotEmpty) ...[
-                    const SizedBox(height: 32),
-
-                    // Category Breakdown Title
-                    Text(
-                      'Category Breakdown',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-
                     const SizedBox(height: 16),
 
-                    // Pie Chart
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(20),
-                        child: SizedBox(
-                          height: 250,
-                          child: PieChart(
-                            PieChartData(
-                              sections: _categoryTotals.entries.map((entry) {
-                                final index = _categoryTotals.keys
-                                    .toList()
-                                    .indexOf(entry.key);
-                                final percentage =
-                                    (entry.value / totalSpent) * 100;
-
-                                return PieChartSectionData(
-                                  color:
-                                      chartColors[index % chartColors.length],
-                                  value: entry.value,
-                                  title: '${percentage.toStringAsFixed(1)}%',
-                                  radius: 80,
-                                  titleStyle: const TextStyle(
-                                    fontSize: 12,
+                    // Top KPI Stats Cards
+                    Row(
+                      children: [
+                        // Total Income
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withValues(alpha: isDark ? 0.15 : 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.green.withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.arrow_downward, color: Colors.green, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text('Income', style: TextStyle(fontSize: 12, color: Colors.green.shade700, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '₹${NumberFormat('#,##,###').format(_totalIncome)}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: Colors.green,
                                   ),
-                                );
-                              }).toList(),
-                              sectionsSpace: 2,
-                              centerSpaceRadius: 40,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+
+                        // Total Expense
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red.withValues(alpha: isDark ? 0.15 : 0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.arrow_upward, color: Colors.red, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text('Expenses', style: TextStyle(fontSize: 12, color: Colors.red.shade700, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  '₹${NumberFormat('#,##,###').format(_totalExpense)}',
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Net Savings & Daily Average Row
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Column(
+                            children: [
+                              Text('Net Savings', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₹${NumberFormat('#,##,###.00').format(_totalIncome - _totalExpense)}',
+                                style: TextStyle(
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                  color: (_totalIncome - _totalExpense) >= 0 ? Colors.green : Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(width: 1, height: 30, color: Colors.grey.shade300),
+                          Column(
+                            children: [
+                              Text('Daily Avg Expense', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                              const SizedBox(height: 4),
+                              Text(
+                                '₹${NumberFormat('#,##,###.00').format(dailyAverageExpense)}',
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          Container(width: 1, height: 30, color: Colors.grey.shade300),
+                          Column(
+                            children: [
+                              Text('Total Txns', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${_monthPayments.length}',
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Category Breakdown Header + Toggle
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Category Breakdown',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        SegmentedButton<TransactionType>(
+                          style: ButtonStyle(
+                            visualDensity: VisualDensity.compact,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          segments: const [
+                            ButtonSegment(value: TransactionType.debit, label: Text('Expense', style: TextStyle(fontSize: 11))),
+                            ButtonSegment(value: TransactionType.credit, label: Text('Income', style: TextStyle(fontSize: 11))),
+                          ],
+                          selected: {_chartType},
+                          onSelectionChanged: (set) {
+                            setState(() {
+                              _chartType = set.first;
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+
+                    // Category Pie Chart & List
+                    if (activeTotals.isNotEmpty && activeTotalAmount > 0) ...[
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: SizedBox(
+                            height: 220,
+                            child: PieChart(
+                              PieChartData(
+                                sections: activeTotals.entries.map((entry) {
+                                  final percentage = (entry.value / activeTotalAmount) * 100;
+                                  final color = Category.getColor(entry.key);
+
+                                  return PieChartSectionData(
+                                    color: color,
+                                    value: entry.value,
+                                    title: percentage >= 8 ? '${percentage.toStringAsFixed(0)}%' : '',
+                                    radius: 70,
+                                    titleStyle: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  );
+                                }).toList(),
+                                sectionsSpace: 3,
+                                centerSpaceRadius: 35,
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
 
-                    const SizedBox(height: 16),
+                      // Category Details List
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4)),
+                        ),
+                        child: Column(
+                          children: activeTotals.entries.map((entry) {
+                            final percentage = (entry.value / activeTotalAmount) * 100;
+                            final color = Category.getColor(entry.key);
 
-                    // Category List
-                    Card(
-                      child: Column(
-                        children: _categoryTotals.entries.map((entry) {
-                          final index = _categoryTotals.keys.toList().indexOf(
-                            entry.key,
-                          );
-                          final percentage = (entry.value / totalSpent) * 100;
-
-                          return ListTile(
-                            leading: Container(
-                              width: 20,
-                              height: 20,
-                              decoration: BoxDecoration(
-                                color: chartColors[index % chartColors.length],
-                                borderRadius: BorderRadius.circular(4),
+                            return ListTile(
+                              leading: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: color.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(Category.getIcon(entry.key), style: const TextStyle(fontSize: 18)),
+                                ),
                               ),
-                            ),
-                            title: Row(
-                              children: [
-                                Text(Category.getIcon(entry.key)),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(entry.key)),
-                              ],
-                            ),
-                            subtitle: Text('${percentage.toStringAsFixed(1)}%'),
-                            trailing: Text(
-                              '₹${NumberFormat('#,##,###.00').format(entry.value)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                              title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                              subtitle: Text('${percentage.toStringAsFixed(1)}% of total'),
+                              trailing: Text(
+                                '₹${NumberFormat('#,##,###.00').format(entry.value)}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                               ),
-                            ),
-                          );
-                        }).toList(),
+                            );
+                          }).toList(),
+                        ),
                       ),
-                    ),
-                  ] else
-                    Card(
-                      child: Padding(
+                    ] else ...[
+                      Container(
                         padding: const EdgeInsets.all(32),
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                         child: Column(
                           children: [
-                            Icon(
-                              Icons.analytics_outlined,
-                              size: 64,
-                              color: theme.colorScheme.onSurface.withValues(
-                                alpha: 0.3,
-                              ),
-                            ),
-                            const SizedBox(height: 16),
+                            Icon(Icons.pie_chart_outline, size: 48, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
                             Text(
-                              'No data for this month',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurface.withValues(
-                                  alpha: 0.6,
-                                ),
-                              ),
+                              'No ${_chartType == TransactionType.debit ? 'expense' : 'income'} data for this month',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                ],
+                    ],
+
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
             ),
     );
