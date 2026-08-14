@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
+import 'parser/ml/fasttext_engine.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
@@ -13,6 +14,9 @@ void main() async {
 
   // Initialize interactive notification service
   await NotificationService.instance.initialize();
+
+  // Initialize on-device FastText AI classifier
+  await FastTextEngine.instance.initialize();
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(

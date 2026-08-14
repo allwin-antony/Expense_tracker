@@ -1,6 +1,7 @@
 import '../financial_regex_patterns.dart';
 import '../merchant_categorizer.dart';
 import 'bert_tokenizer.dart';
+import 'fasttext_engine.dart';
 
 enum MessageIntent {
   authenticTransaction,
@@ -93,6 +94,47 @@ class AuthenticityValidator {
       );
     }
 
+    // FastText Neural Semantic Evaluation (if model is initialized)
+    final mlResult = FastTextEngine.instance.classify(clean);
+    if (mlResult != null) {
+      if (mlResult.isSpam && mlResult.confidence >= 0.70) {
+        return AuthenticityEvaluation(
+          isAuthentic: false,
+          authenticityScore: 0.05,
+          intent: MessageIntent.promotionalOrLoanOffer,
+          rejectionReason: 'AI Classifier flagged promotional spam (${(mlResult.confidence * 100).toInt()}% confidence)',
+          category: 'Other Expense',
+          cleanMerchant: 'Promotional Offer',
+          confidence: mlResult.confidence,
+        );
+      }
+      if (mlResult.isOtp && mlResult.confidence >= 0.75) {
+        return AuthenticityEvaluation(
+          isAuthentic: false,
+          authenticityScore: 0.05,
+          intent: MessageIntent.otpOrSecurity,
+          rejectionReason: 'AI Classifier flagged OTP verification (${(mlResult.confidence * 100).toInt()}% confidence)',
+          category: 'Other Expense',
+          cleanMerchant: 'Security Alert',
+          confidence: mlResult.confidence,
+        );
+      }
+      if (mlResult.isInfo &&
+          mlResult.confidence >= 0.75 &&
+          !FinancialRegexPatterns.debitKeywordsRegex.hasMatch(clean) &&
+          !FinancialRegexPatterns.creditKeywordsRegex.hasMatch(clean)) {
+        return AuthenticityEvaluation(
+          isAuthentic: false,
+          authenticityScore: 0.15,
+          intent: MessageIntent.balanceQuery,
+          rejectionReason: 'AI Classifier flagged balance / info message (${(mlResult.confidence * 100).toInt()}% confidence)',
+          category: 'Other Expense',
+          cleanMerchant: 'Balance Alert',
+          confidence: mlResult.confidence,
+        );
+      }
+    }
+
     // Authenticity Positive Signals
     final hasAmount = amount != null && amount > 0;
     final hasDebit = FinancialRegexPatterns.debitKeywordsRegex.hasMatch(clean);
@@ -106,6 +148,11 @@ class AuthenticityValidator {
     if (hasAcc) score += 0.20;
     if (hasBank) score += 0.15;
     if (hasRef) score += 0.10;
+
+    // Blend with FastText genuine confidence if available
+    if (mlResult != null && mlResult.isGenuine) {
+      score = (score * 0.4) + (mlResult.confidence * 0.6);
+    }
 
     // Phishing / Fake alert penalty (contains suspicious shortlinks without verified account)
     final hasSuspiciousUrl = (clean.contains('http://') || clean.contains('https://')) && !hasAcc && !hasRef;
