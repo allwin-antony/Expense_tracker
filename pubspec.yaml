@@ -79,10 +79,10 @@ flutter:
   #         weight: 700
   #
 flutter_launcher_icons:
-  android: true # To generate icons for Android
-  ios: true # To generate icons for iOS
-  image_path: "assets/icons/app_icon.png" # Replace with the actual path to your icon file
-  adaptive_icon_background: "#FFFFFF" # For adaptive icons on Android (optional)
+  android: true
+  ios: false
+  image_path: "assets/icons/app_icon.png"
+  adaptive_icon_background: "#071638"
   #adaptive_icon_foreground: "assets/icons/app_icon_foreground.png" # For adaptive icons on Android (optional)
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
