@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/payment.dart';
+import 'category_picker_sheet.dart';
 
 class AddPaymentDialog extends StatefulWidget {
   final Function(Payment) onPaymentAdded;
@@ -330,29 +331,11 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
               ),
               const SizedBox(height: 12),
 
-              // Category Dropdown
-              DropdownButtonFormField<String>(
-                initialValue: _selectedCategory,
-                decoration: InputDecoration(
-                  labelText: 'Category',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                  prefixIcon: const Icon(Icons.category_outlined),
-                ),
-                items: availableCategories.map((category) {
-                  return DropdownMenuItem(
-                    value: category,
-                    child: Row(
-                      children: [
-                        Text(Category.getIcon(category)),
-                        const SizedBox(width: 8),
-                        Text(category),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value != null) setState(() => _selectedCategory = value);
-                },
+              // Category Selector Tile
+              CategorySelectorTile(
+                selectedCategory: _selectedCategory,
+                type: _selectedType,
+                onCategorySelected: (cat) => setState(() => _selectedCategory = cat),
               ),
               const SizedBox(height: 12),
 

@@ -243,9 +243,10 @@ class _PaymentCardState extends State<PaymentCard> {
                       ),
                     ),
                     child: Center(
-                      child: Text(
-                        Category.getIcon(widget.payment.category),
-                        style: const TextStyle(fontSize: 20),
+                      child: Icon(
+                        Category.getMaterialIcon(widget.payment.category),
+                        size: 21,
+                        color: categoryColor,
                       ),
                     ),
                   ),

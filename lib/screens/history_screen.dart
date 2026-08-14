@@ -705,23 +705,36 @@ class HistoryScreenState extends State<HistoryScreen> {
                                       color: isDark ? Colors.white : const Color(0xFF0F172A),
                                     ),
                                     items: [
-                                      const DropdownMenuItem(value: 'All', child: Text('All Categories')),
-                                      ...Category.allCategories.map((c) => DropdownMenuItem(
-                                            value: c,
-                                            child: Row(
-                                              children: [
-                                                Text(Category.getIcon(c), style: const TextStyle(fontSize: 13)),
-                                                const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    c,
-                                                    overflow: TextOverflow.ellipsis,
-                                                    style: const TextStyle(fontSize: 12),
-                                                  ),
-                                                ),
-                                              ],
+                                      DropdownMenuItem<String>(
+                                        value: 'All',
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 28,
+                                              height: 28,
+                                              margin: const EdgeInsets.only(right: 10),
+                                              decoration: BoxDecoration(
+                                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: Icon(
+                                                Icons.grid_view_rounded,
+                                                size: 15,
+                                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                                              ),
                                             ),
-                                          )),
+                                            const Flexible(
+                                              child: Text(
+                                                'All Categories',
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      ...Category.allCategories.map((c) => Category.buildDropdownItem(c, isDark: isDark)),
                                     ],
                                     onChanged: _onCategoryChanged,
                                   ),

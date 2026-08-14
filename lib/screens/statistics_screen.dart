@@ -534,14 +534,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                       width: 38,
                                       height: 38,
                                       decoration: BoxDecoration(
-                                        color: color.withValues(alpha: isDark ? 0.2 : 0.12),
+                                        color: color.withValues(alpha: isDark ? 0.22 : 0.12),
                                         borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(color: color.withValues(alpha: 0.3)),
+                                        border: Border.all(
+                                          color: color.withValues(alpha: isDark ? 0.45 : 0.3),
+                                          width: 0.8,
+                                        ),
                                       ),
                                       child: Center(
-                                        child: Text(
-                                          Category.getIcon(entry.key),
-                                          style: const TextStyle(fontSize: 18),
+                                        child: Icon(
+                                          Category.getMaterialIcon(entry.key),
+                                          size: 18,
+                                          color: color,
                                         ),
                                       ),
                                     ),

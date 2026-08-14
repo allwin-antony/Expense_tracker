@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../models/category.dart';
 import '../models/payment.dart';
 import '../parser/message_parser_pipeline.dart';
+import 'category_picker_sheet.dart';
 
 class SmartParserSheet extends StatefulWidget {
   final Function(Payment) onPaymentParsedAndSaved;
@@ -364,37 +365,11 @@ class _SmartParserSheetState extends State<SmartParserSheet> {
                       ],
                     ),
                     const SizedBox(height: 12),
-
-                    // Category Selector
-                    DropdownButtonFormField<String>(
-                      initialValue: Category.allCategories.contains(_selectedCategory)
-                          ? _selectedCategory
-                          : (_selectedType == TransactionType.credit ? 'Other Income' : 'Other Expense'),
-                      decoration: InputDecoration(
-                        labelText: 'Category',
-                        filled: true,
-                        fillColor: theme.cardColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      items: (_selectedType == TransactionType.credit
-                              ? Category.incomeCategories
-                              : Category.expenseCategories)
-                          .map((category) => DropdownMenuItem(
-                                value: category,
-                                child: Row(
-                                  children: [
-                                    Text(Category.getIcon(category), style: const TextStyle(fontSize: 18)),
-                                    const SizedBox(width: 8),
-                                    Text(category, style: const TextStyle(fontSize: 13)),
-                                  ],
-                                ),
-                              ))
-                          .toList(),
-                      onChanged: (val) {
-                        if (val != null) setState(() => _selectedCategory = val);
-                      },
+                    // Category Selector Tile
+                    CategorySelectorTile(
+                      selectedCategory: _selectedCategory,
+                      type: _selectedType,
+                      onCategorySelected: (val) => setState(() => _selectedCategory = val),
                     ),
                     const SizedBox(height: 12),
 
