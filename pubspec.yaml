@@ -40,6 +40,7 @@ dependencies:
   permission_handler: 11.3.1
   shared_preferences: ^2.2.2
   sqflite: ^2.3.0
+  flutter_local_notifications: ^18.0.1
 
 dev_dependencies:
   flutter_launcher_icons: ^0.14.4

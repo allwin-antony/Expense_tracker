@@ -7,6 +7,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/payment.dart';
 import '../parser/message_parser_pipeline.dart';
 import 'database_service.dart';
+import 'notification_service.dart';
 
 enum SmsSyncRange {
   thisMonth,
@@ -357,8 +358,10 @@ class SmsSyncService {
                       e.date.difference(payment.date).inSeconds.abs() < 60));
 
               if (!isDup) {
-                await DatabaseService.instance.addPayment(payment);
-                onPaymentCaptured?.call(payment);
+                final insertedId = await DatabaseService.instance.addPayment(payment);
+                final savedPayment = payment.copyWith(id: insertedId);
+                onPaymentCaptured?.call(savedPayment);
+                await NotificationService.instance.showTransactionCapturedNotification(savedPayment);
               }
             }
           }

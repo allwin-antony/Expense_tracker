@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/database_service.dart';
+import 'services/notification_service.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
@@ -9,6 +10,9 @@ void main() async {
 
   // Initialize database
   await DatabaseService.instance.database;
+
+  // Initialize interactive notification service
+  await NotificationService.instance.initialize();
 
   // Set system UI overlay style
   SystemChrome.setSystemUIOverlayStyle(
@@ -65,6 +69,22 @@ class BudgetTrackerApp extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
         ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF0F172A),
+          contentTextStyle: GoogleFonts.inter(
+            color: Colors.white,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w500,
+          ),
+          actionTextColor: const Color(0xFF60A5FA),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF334155), width: 0.5),
+          ),
+          elevation: 6,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        ),
       ),
       darkTheme: ThemeData(
         useMaterial3: true,
@@ -96,6 +116,22 @@ class BudgetTrackerApp extends StatelessWidget {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
+        ),
+        snackBarTheme: SnackBarThemeData(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: const Color(0xFF1E293B),
+          contentTextStyle: GoogleFonts.inter(
+            color: const Color(0xFFF8FAFC),
+            fontSize: 13.5,
+            fontWeight: FontWeight.w500,
+          ),
+          actionTextColor: const Color(0xFF93C5FD),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Color(0xFF334155), width: 1),
+          ),
+          elevation: 8,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
       ),
       themeMode: ThemeMode.system,

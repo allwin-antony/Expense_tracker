@@ -469,7 +469,7 @@ class HistoryScreenState extends State<HistoryScreen> {
             children: [
               Icon(
                 isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
-                color: Colors.white,
+                color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
                 size: 18,
               ),
               const SizedBox(width: 8),
@@ -478,13 +478,12 @@ class HistoryScreenState extends State<HistoryScreen> {
                   isExcluded
                       ? 'Excluded from budget calculations'
                       : 'Included in budget calculations',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
           ),
-          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -514,16 +513,17 @@ class HistoryScreenState extends State<HistoryScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.calendar_month_outlined, color: Colors.white, size: 18),
+              const Icon(Icons.calendar_month_outlined, color: Color(0xFF60A5FA), size: 18),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Counted in $monthStr budget'),
+                child: Text(
+                  'Counted in $monthStr budget',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),
-          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
@@ -1076,7 +1076,7 @@ class HistoryScreenState extends State<HistoryScreen> {
               children: [
                 Icon(
                   isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
-                  color: Colors.white,
+                  color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
                   size: 18,
                 ),
                 const SizedBox(width: 8),
@@ -1085,13 +1085,12 @@ class HistoryScreenState extends State<HistoryScreen> {
                     isExcluded
                         ? 'Excluded ${validIds.length} transactions on ${group.displayTitle} from budget'
                         : 'Included ${validIds.length} transactions on ${group.displayTitle} in budget',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                   ),
                 ),
               ],
             ),
-            behavior: SnackBarBehavior.floating,
             duration: const Duration(seconds: 2),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
         );
       }
@@ -1240,16 +1239,17 @@ class HistoryScreenState extends State<HistoryScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.calendar_month_outlined, color: Colors.white, size: 18),
+              const Icon(Icons.calendar_month_outlined, color: Color(0xFF60A5FA), size: 18),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Shifted ${validIds.length} transactions on ${group.displayTitle} to $monthStr budget'),
+                child: Text(
+                  'Shifted ${validIds.length} transactions on ${group.displayTitle} to $monthStr budget',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
+                ),
               ),
             ],
           ),
-          behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         ),
       );
     }
