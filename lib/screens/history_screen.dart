@@ -330,12 +330,25 @@ class HistoryScreenState extends State<HistoryScreen> {
         });
         _loadFilteredData();
       }
+    } else if (preset == TimeFilterPreset.specificMonth) {
+      final picked = await showDatePicker(
+        context: context,
+        initialDate: _filterMonth ?? DateTime.now(),
+        firstDate: DateTime(2020),
+        lastDate: DateTime(2035),
+        helpText: 'SELECT MONTH TO FILTER',
+      );
+      if (picked != null) {
+        setState(() {
+          _filterMonth = DateTime(picked.year, picked.month, 1);
+          _selectedTimePreset = TimeFilterPreset.specificMonth;
+        });
+        _loadFilteredData();
+      }
     } else {
       setState(() {
         _selectedTimePreset = preset;
-        if (preset != TimeFilterPreset.specificMonth) {
-          _filterMonth = null;
-        }
+        _filterMonth = null;
       });
       _loadFilteredData();
     }
@@ -859,6 +872,51 @@ class HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
 
+                  // Shifted Transactions Info Banner
+                  if (_payments.any((p) => p.hasShiftedBudgetMonth)) ...[
+                    Builder(
+                      builder: (context) {
+                        final shiftedList = _payments.where((p) => p.hasShiftedBudgetMonth).toList();
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? const Color(0xFF4C1D95).withValues(alpha: 0.25)
+                                : const Color(0xFFF5F3FF),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(
+                              color: isDark
+                                  ? const Color(0xFF7C3AED).withValues(alpha: 0.4)
+                                  : const Color(0xFFDDD6FE),
+                              width: 0.8,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.swap_horiz_rounded,
+                                size: 15,
+                                color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Includes ${shiftedList.length} transaction${shiftedList.length == 1 ? '' : 's'} assigned to this budget from other dates.',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? const Color(0xFFC4B5FD) : const Color(0xFF5B21B6),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+
                   // List of Transactions with Date Groups & Infinite Scroll
                   Expanded(
                     child: _payments.isEmpty
@@ -1290,6 +1348,41 @@ class HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               ),
+              if (group.hasShiftedTransactions) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? const Color(0xFF4C1D95).withValues(alpha: 0.5)
+                        : const Color(0xFFEDE9FE),
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(
+                      color: isDark ? const Color(0xFF7C3AED) : const Color(0xFFC4B5FD),
+                      width: 0.5,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.swap_horiz_rounded,
+                        size: 10,
+                        color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9),
+                      ),
+                      const SizedBox(width: 2.5),
+                      Text(
+                        'Shifted',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
           Row(

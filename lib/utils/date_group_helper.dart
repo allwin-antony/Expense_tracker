@@ -17,6 +17,12 @@ class DateGroup {
     required this.totalExpense,
     required this.totalIncome,
   });
+
+  /// True if any payments in this group are shifted to count in a different budget month
+  bool get hasShiftedTransactions => payments.any((p) => p.hasShiftedBudgetMonth);
+
+  /// True if ALL payments in this group are shifted to count in a different budget month
+  bool get isAllShifted => payments.isNotEmpty && payments.every((p) => p.hasShiftedBudgetMonth);
 }
 
 class DateGroupHelper {

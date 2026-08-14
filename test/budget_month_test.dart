@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/models/payment.dart';
+import 'package:expense_tracker/utils/date_group_helper.dart';
 
 void main() {
   group('Payment Budget Month (Count In Another Month) Tests', () {
@@ -69,6 +70,47 @@ void main() {
       expect(cleared.budgetMonth, isNull);
       expect(cleared.effectiveMonth, DateTime(2026, 7, 1));
       expect(cleared.hasShiftedBudgetMonth, isFalse);
+    });
+
+    test('DateGroup detects groups with shifted transactions accurately', () {
+      final shiftedPayment = Payment(
+        description: 'Shifted Rent',
+        amount: 15000.0,
+        category: 'Rent',
+        date: DateTime(2026, 7, 31),
+        budgetMonth: DateTime(2026, 8, 1),
+      );
+
+      final normalPayment = Payment(
+        description: 'Coffee',
+        amount: 120.0,
+        category: 'Food',
+        date: DateTime(2026, 8, 5),
+      );
+
+      final mixedGroup = DateGroup(
+        dateKey: '2026-07-31',
+        displayTitle: '31 Jul',
+        date: DateTime(2026, 7, 31),
+        payments: [shiftedPayment, normalPayment],
+        totalExpense: 15120.0,
+        totalIncome: 0.0,
+      );
+
+      expect(mixedGroup.hasShiftedTransactions, isTrue);
+      expect(mixedGroup.isAllShifted, isFalse);
+
+      final allShiftedGroup = DateGroup(
+        dateKey: '2026-07-31',
+        displayTitle: '31 Jul',
+        date: DateTime(2026, 7, 31),
+        payments: [shiftedPayment],
+        totalExpense: 15000.0,
+        totalIncome: 0.0,
+      );
+
+      expect(allShiftedGroup.hasShiftedTransactions, isTrue);
+      expect(allShiftedGroup.isAllShifted, isTrue);
     });
   });
 }

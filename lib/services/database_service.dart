@@ -165,14 +165,27 @@ class DatabaseService {
       whereArgs.add(type.name);
     }
 
-    if (startDate != null) {
-      whereClauses.add('date >= ?');
-      whereArgs.add(startDate.toIso8601String());
-    }
-
-    if (endDate != null) {
-      whereClauses.add('date <= ?');
-      whereArgs.add(endDate.toIso8601String());
+    if (startDate != null && endDate != null) {
+      whereClauses.add(
+        '((budgetMonth IS NOT NULL AND budgetMonth >= ? AND budgetMonth <= ?) OR '
+        '(budgetMonth IS NULL AND date >= ? AND date <= ?))',
+      );
+      whereArgs.addAll([
+        startDate.toIso8601String(),
+        endDate.toIso8601String(),
+        startDate.toIso8601String(),
+        endDate.toIso8601String(),
+      ]);
+    } else if (startDate != null) {
+      whereClauses.add(
+        '((budgetMonth IS NOT NULL AND budgetMonth >= ?) OR (budgetMonth IS NULL AND date >= ?))',
+      );
+      whereArgs.addAll([startDate.toIso8601String(), startDate.toIso8601String()]);
+    } else if (endDate != null) {
+      whereClauses.add(
+        '((budgetMonth IS NOT NULL AND budgetMonth <= ?) OR (budgetMonth IS NULL AND date <= ?))',
+      );
+      whereArgs.addAll([endDate.toIso8601String(), endDate.toIso8601String()]);
     }
 
     final String? where = whereClauses.isNotEmpty ? whereClauses.join(' AND ') : null;
@@ -217,14 +230,27 @@ class DatabaseService {
       whereArgs.add(type.name);
     }
 
-    if (startDate != null) {
-      whereClauses.add('date >= ?');
-      whereArgs.add(startDate.toIso8601String());
-    }
-
-    if (endDate != null) {
-      whereClauses.add('date <= ?');
-      whereArgs.add(endDate.toIso8601String());
+    if (startDate != null && endDate != null) {
+      whereClauses.add(
+        '((budgetMonth IS NOT NULL AND budgetMonth >= ? AND budgetMonth <= ?) OR '
+        '(budgetMonth IS NULL AND date >= ? AND date <= ?))',
+      );
+      whereArgs.addAll([
+        startDate.toIso8601String(),
+        endDate.toIso8601String(),
+        startDate.toIso8601String(),
+        endDate.toIso8601String(),
+      ]);
+    } else if (startDate != null) {
+      whereClauses.add(
+        '((budgetMonth IS NOT NULL AND budgetMonth >= ?) OR (budgetMonth IS NULL AND date >= ?))',
+      );
+      whereArgs.addAll([startDate.toIso8601String(), startDate.toIso8601String()]);
+    } else if (endDate != null) {
+      whereClauses.add(
+        '((budgetMonth IS NOT NULL AND budgetMonth <= ?) OR (budgetMonth IS NULL AND date <= ?))',
+      );
+      whereArgs.addAll([endDate.toIso8601String(), endDate.toIso8601String()]);
     }
 
     final String whereClause = whereClauses.isNotEmpty ? 'WHERE ${whereClauses.join(' AND ')}' : '';

@@ -365,32 +365,32 @@ class _PaymentCardState extends State<PaymentCard> {
                             ),
                           if (widget.payment.hasShiftedBudgetMonth)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                               decoration: BoxDecoration(
                                 color: isDark
-                                    ? const Color(0xFF4C1D95).withValues(alpha: 0.5)
+                                    ? const Color(0xFF4C1D95).withValues(alpha: 0.6)
                                     : const Color(0xFFEDE9FE),
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: isDark ? const Color(0xFF7C3AED) : const Color(0xFFC4B5FD),
-                                  width: 0.5,
+                                  color: isDark ? const Color(0xFF8B5CF6) : const Color(0xFFC4B5FD),
+                                  width: 0.8,
                                 ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Icon(
-                                    Icons.calendar_month_outlined,
-                                    size: 9.5,
-                                    color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9),
+                                    Icons.swap_horiz_rounded,
+                                    size: 11,
+                                    color: isDark ? const Color(0xFFC4B5FD) : const Color(0xFF6D28D9),
                                   ),
                                   const SizedBox(width: 3),
                                   Text(
-                                    DateFormat('MMM yyyy').format(widget.payment.budgetMonth!),
+                                    'Budget: ${DateFormat('MMM yyyy').format(widget.payment.budgetMonth!)}',
                                     style: TextStyle(
-                                      fontSize: 9.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: isDark ? const Color(0xFFA78BFA) : const Color(0xFF6D28D9),
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: isDark ? const Color(0xFFC4B5FD) : const Color(0xFF6D28D9),
                                     ),
                                   ),
                                 ],
