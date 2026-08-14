@@ -8,6 +8,7 @@ class CategoryPickerSheet extends StatefulWidget {
   final TransactionType initialType;
   final ValueChanged<String> onCategorySelected;
   final bool includeAllOption;
+  final bool lockType;
 
   const CategoryPickerSheet({
     super.key,
@@ -15,6 +16,7 @@ class CategoryPickerSheet extends StatefulWidget {
     this.initialType = TransactionType.debit,
     required this.onCategorySelected,
     this.includeAllOption = false,
+    this.lockType = false,
   });
 
   static Future<String?> show(
@@ -23,6 +25,7 @@ class CategoryPickerSheet extends StatefulWidget {
     TransactionType type = TransactionType.debit,
     required ValueChanged<String> onSelected,
     bool includeAllOption = false,
+    bool lockType = false,
   }) async {
     HapticFeedback.selectionClick();
     return showModalBottomSheet<String>(
@@ -34,6 +37,7 @@ class CategoryPickerSheet extends StatefulWidget {
         initialType: type,
         onCategorySelected: onSelected,
         includeAllOption: includeAllOption,
+        lockType: lockType,
       ),
     );
   }
@@ -183,42 +187,43 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
               ),
             ),
 
-            // Type Switcher: Expenses vs Income
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
-              child: SizedBox(
-                width: double.infinity,
-                child: SegmentedButton<TransactionType>(
-                  segments: const [
-                    ButtonSegment(
-                      value: TransactionType.debit,
-                      label: Text('Expense Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                      icon: Icon(Icons.arrow_downward_rounded, size: 14),
-                    ),
-                    ButtonSegment(
-                      value: TransactionType.credit,
-                      label: Text('Income Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                      icon: Icon(Icons.arrow_upward_rounded, size: 14),
-                    ),
-                  ],
-                  selected: {_selectedType},
-                  onSelectionChanged: (set) {
-                    HapticFeedback.selectionClick();
-                    setState(() => _selectedType = set.first);
-                  },
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    side: WidgetStatePropertyAll(
-                      BorderSide(
-                        color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                        width: 0.8,
+            // Type Switcher: Expenses vs Income (Only shown when category type is not locked)
+            if (!widget.lockType)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<TransactionType>(
+                    segments: const [
+                      ButtonSegment(
+                        value: TransactionType.debit,
+                        label: Text('Expense Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        icon: Icon(Icons.arrow_downward_rounded, size: 14),
+                      ),
+                      ButtonSegment(
+                        value: TransactionType.credit,
+                        label: Text('Income Categories', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        icon: Icon(Icons.arrow_upward_rounded, size: 14),
+                      ),
+                    ],
+                    selected: {_selectedType},
+                    onSelectionChanged: (set) {
+                      HapticFeedback.selectionClick();
+                      setState(() => _selectedType = set.first);
+                    },
+                    style: ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      side: WidgetStatePropertyAll(
+                        BorderSide(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                          width: 0.8,
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
 
             const SizedBox(height: 6),
 
@@ -453,6 +458,7 @@ class CategorySelectorTile extends StatelessWidget {
           selectedCategory: selectedCategory,
           type: type,
           onSelected: onCategorySelected,
+          lockType: true,
         ),
         borderRadius: BorderRadius.circular(14),
         child: Container(
