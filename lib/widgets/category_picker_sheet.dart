@@ -7,12 +7,14 @@ class CategoryPickerSheet extends StatefulWidget {
   final String selectedCategory;
   final TransactionType initialType;
   final ValueChanged<String> onCategorySelected;
+  final bool includeAllOption;
 
   const CategoryPickerSheet({
     super.key,
     required this.selectedCategory,
     this.initialType = TransactionType.debit,
     required this.onCategorySelected,
+    this.includeAllOption = false,
   });
 
   static Future<String?> show(
@@ -20,6 +22,7 @@ class CategoryPickerSheet extends StatefulWidget {
     required String selectedCategory,
     TransactionType type = TransactionType.debit,
     required ValueChanged<String> onSelected,
+    bool includeAllOption = false,
   }) async {
     HapticFeedback.selectionClick();
     return showModalBottomSheet<String>(
@@ -30,6 +33,7 @@ class CategoryPickerSheet extends StatefulWidget {
         selectedCategory: selectedCategory,
         initialType: type,
         onCategorySelected: onSelected,
+        includeAllOption: includeAllOption,
       ),
     );
   }
@@ -217,6 +221,74 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
             ),
 
             const SizedBox(height: 6),
+
+            // "All Categories" Quick Selector Card (for History Filter)
+            if (widget.includeAllOption && _searchQuery.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      widget.onCategorySelected('All');
+                      Navigator.pop(context, 'All');
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: widget.selectedCategory == 'All'
+                            ? theme.colorScheme.primary.withValues(alpha: isDark ? 0.25 : 0.12)
+                            : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8FAFC)),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: widget.selectedCategory == 'All'
+                              ? theme.colorScheme.primary
+                              : (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0)),
+                          width: widget.selectedCategory == 'All' ? 1.8 : 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.grid_view_rounded,
+                              size: 18,
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'All Categories',
+                                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold),
+                                ),
+                                Text(
+                                  'Show transactions across all categories',
+                                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (widget.selectedCategory == 'All')
+                            Icon(Icons.check_circle_rounded, color: theme.colorScheme.primary, size: 20),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
 
             // Category Grid
             Expanded(

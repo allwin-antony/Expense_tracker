@@ -9,6 +9,7 @@ import '../utils/date_group_helper.dart';
 import '../widgets/payment_card.dart';
 import '../widgets/edit_payment_dialog.dart';
 import '../widgets/shimmer_loading.dart';
+import '../widgets/category_picker_sheet.dart';
 
 enum TimeFilterPreset {
   allTime,
@@ -680,63 +681,78 @@ class HistoryScreenState extends State<HistoryScreen> {
                         // Row 2: Category & Time Preset Filter
                         Row(
                           children: [
-                            // Category Dropdown
+                            // Category Filter Button
                             Expanded(
-                              child: Container(
-                                height: 42,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.08)
-                                        : const Color(0xFFE2E8F0),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => CategoryPickerSheet.show(
+                                    context,
+                                    selectedCategory: _selectedCategory,
+                                    type: _currentTransactionType ?? TransactionType.debit,
+                                    includeAllOption: true,
+                                    onSelected: (cat) => _onCategoryChanged(cat),
                                   ),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<String>(
-                                    value: _selectedCategory,
-                                    isExpanded: true,
-                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
-                                    ),
-                                    items: [
-                                      DropdownMenuItem<String>(
-                                        value: 'All',
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Container(
-                                              width: 28,
-                                              height: 28,
-                                              margin: const EdgeInsets.only(right: 10),
-                                              decoration: BoxDecoration(
-                                                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
-                                                borderRadius: BorderRadius.circular(8),
-                                              ),
-                                              child: Icon(
-                                                Icons.grid_view_rounded,
-                                                size: 15,
-                                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569),
-                                              ),
-                                            ),
-                                            const Flexible(
-                                              child: Text(
-                                                'All Categories',
-                                                overflow: TextOverflow.ellipsis,
-                                                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Container(
+                                    height: 42,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: _selectedCategory != 'All'
+                                          ? Category.getColor(_selectedCategory).withValues(alpha: isDark ? 0.22 : 0.12)
+                                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: _selectedCategory != 'All'
+                                            ? Category.getColor(_selectedCategory).withValues(alpha: isDark ? 0.5 : 0.35)
+                                            : (isDark
+                                                ? Colors.white.withValues(alpha: 0.08)
+                                                : const Color(0xFFE2E8F0)),
+                                        width: _selectedCategory != 'All' ? 1.2 : 1.0,
                                       ),
-                                      ...Category.allCategories.map((c) => Category.buildDropdownItem(c, isDark: isDark)),
-                                    ],
-                                    onChanged: _onCategoryChanged,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: BoxDecoration(
+                                            color: _selectedCategory == 'All'
+                                                ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                                                : Category.getColor(_selectedCategory).withValues(alpha: isDark ? 0.3 : 0.2),
+                                            borderRadius: BorderRadius.circular(7),
+                                          ),
+                                          child: Icon(
+                                            _selectedCategory == 'All'
+                                                ? Icons.grid_view_rounded
+                                                : Category.getMaterialIcon(_selectedCategory),
+                                            size: 14,
+                                            color: _selectedCategory == 'All'
+                                                ? (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569))
+                                                : Category.getColor(_selectedCategory),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _selectedCategory == 'All' ? 'All Categories' : _selectedCategory,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: _selectedCategory != 'All'
+                                                  ? (isDark ? Colors.white : Category.getColor(_selectedCategory))
+                                                  : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 18,
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
