@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../services/sms_sync_service.dart';
 import 'sms_permission_disclosure_dialog.dart';
 
 class SmsPermissionNudgeBanner extends StatefulWidget {
@@ -44,8 +45,11 @@ class _SmsPermissionNudgeBannerState extends State<SmsPermissionNudgeBanner> {
     } else {
       final granted = await SmsPermissionDisclosureDialog.showDisclosureAndRequest(context);
       if (granted) {
-        setState(() => _isGranted = true);
-        widget.onPermissionGranted?.call();
+        await SmsSyncService.instance.syncThisMonth();
+        if (mounted) {
+          setState(() => _isGranted = true);
+          widget.onPermissionGranted?.call();
+        }
       } else {
         final recheckStatus = await Permission.sms.status;
         if (recheckStatus.isPermanentlyDenied && mounted) {

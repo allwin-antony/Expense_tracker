@@ -88,9 +88,11 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _quickSyncAndRefresh() async {
     if (!await SmsSyncService.instance.hasPermission()) return;
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
     final result = await SmsSyncService.instance.syncTransactions(
-      startDate: DateTime.now().subtract(const Duration(days: 2)),
-      maxCount: 50,
+      startDate: startOfMonth,
+      maxCount: 2000,
     );
     if (result.newTransactionsAdded > 0 && mounted) {
       _refreshData();

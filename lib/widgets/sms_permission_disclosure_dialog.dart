@@ -22,6 +22,10 @@ class SmsPermissionDisclosureDialog extends StatelessWidget {
 
     if (agreed == true) {
       final granted = await SmsSyncService.instance.requestPermissions();
+      if (granted) {
+        // Automatically sync all transactions for the entire current month upon permission grant
+        await SmsSyncService.instance.syncThisMonth();
+      }
       return granted;
     }
 

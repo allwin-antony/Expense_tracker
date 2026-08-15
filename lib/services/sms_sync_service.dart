@@ -158,6 +158,20 @@ class SmsSyncService {
     return await Permission.sms.isGranted;
   }
 
+  /// Syncs all transactions for the entire current month
+  Future<SyncResult> syncThisMonth({
+    void Function(double progress, String status)? onProgress,
+  }) async {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    return syncTransactions(
+      startDate: startOfMonth,
+      endDate: now,
+      timeRangeLabel: 'This Month',
+      onProgress: onProgress,
+    );
+  }
+
   /// Top-level function executed in a background isolate for zero UI lag
   static List<Map<String, dynamic>> _parseSmsBatch(List<Map<String, dynamic>> rawItems) {
     final List<Map<String, dynamic>> parsedResults = [];
