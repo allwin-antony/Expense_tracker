@@ -16,15 +16,19 @@ class StatisticsScreen extends StatefulWidget {
   State<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
+enum AnalyticsViewMode { category, merchant }
+
 class _StatisticsScreenState extends State<StatisticsScreen> {
   DateTime _selectedMonth = DateTime.now();
   List<Payment> _monthPayments = [];
   Map<String, double> _expenseCategoryTotals = {};
   Map<String, double> _incomeCategoryTotals = {};
+  List<MerchantSummary> _topMerchants = [];
   double _totalExpense = 0.0;
   double _totalIncome = 0.0;
   bool _isLoading = true;
   TransactionType _chartType = TransactionType.debit;
+  AnalyticsViewMode _viewMode = AnalyticsViewMode.category;
 
   @override
   void initState() {
@@ -60,6 +64,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         _selectedMonth,
         type: TransactionType.credit,
       );
+      final topMerchants = await DatabaseService.instance.getTopMerchantsForMonth(
+        _selectedMonth,
+        type: _chartType,
+        limit: 10,
+      );
       final expense = await DatabaseService.instance.getTotalExpenseForMonth(_selectedMonth);
       final income = await DatabaseService.instance.getTotalIncomeForMonth(_selectedMonth);
 
@@ -68,6 +77,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           _monthPayments = payments;
           _expenseCategoryTotals = expenseTotals;
           _incomeCategoryTotals = incomeTotals;
+          _topMerchants = topMerchants;
           _totalExpense = expense;
           _totalIncome = income;
           if (!silent) _isLoading = false;
@@ -389,30 +399,37 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Category Breakdown Header + Toggle
+                    // Breakdown Header + View Mode & Type Toggles
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Category Breakdown',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 16,
-                                letterSpacing: -0.2,
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                _viewMode == AnalyticsViewMode.category ? 'Category Breakdown' : 'Top Merchants',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  letterSpacing: -0.2,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                            Text(
-                              'Tap category to view in History',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              Text(
+                                _viewMode == AnalyticsViewMode.category ? 'Tap category to view in History' : 'Ranked by monthly spending share',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 8),
                         SegmentedButton<TransactionType>(
                           style: ButtonStyle(
                             visualDensity: VisualDensity.compact,
@@ -439,211 +456,453 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                             setState(() {
                               _chartType = set.first;
                             });
+                            _loadMonthData(silent: true);
                           },
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // Mode Switcher: Category vs Merchant
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _viewMode = AnalyticsViewMode.category);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: _viewMode == AnalyticsViewMode.category
+                                      ? (isDark ? const Color(0xFF334155) : Colors.white)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(9),
+                                  boxShadow: _viewMode == AnalyticsViewMode.category
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.05),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ]
+                                      : [],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '📊 By Category',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _viewMode == AnalyticsViewMode.category
+                                          ? (isDark ? Colors.white : const Color(0xFF1E293B))
+                                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () {
+                                HapticFeedback.selectionClick();
+                                setState(() => _viewMode = AnalyticsViewMode.merchant);
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 200),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: _viewMode == AnalyticsViewMode.merchant
+                                      ? (isDark ? const Color(0xFF334155) : Colors.white)
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(9),
+                                  boxShadow: _viewMode == AnalyticsViewMode.merchant
+                                      ? [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.05),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          )
+                                        ]
+                                      : [],
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    '🛍️ By Merchant',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: _viewMode == AnalyticsViewMode.merchant
+                                          ? (isDark ? Colors.white : const Color(0xFF1E293B))
+                                          : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 16),
 
-                    // Category Pie Chart & List
-                    if (activeTotals.isNotEmpty && activeTotalAmount > 0) ...[
-                      Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                    // Category or Merchant Breakdown Content
+                    if (_viewMode == AnalyticsViewMode.category) ...[
+                      if (activeTotals.isNotEmpty && activeTotalAmount > 0) ...[
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            ),
                           ),
-                        ),
-                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                        child: Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: SizedBox(
-                            height: 220,
-                            child: PieChart(
-                              PieChartData(
-                                pieTouchData: PieTouchData(
-                                  touchCallback: (FlTouchEvent event, pieTouchResponse) {
-                                    if (event is FlTapUpEvent &&
-                                        pieTouchResponse != null &&
-                                        pieTouchResponse.touchedSection != null) {
-                                      final index = pieTouchResponse.touchedSection!.touchedSectionIndex;
-                                      if (index >= 0 && index < activeTotals.length) {
-                                        final category = activeTotals.keys.elementAt(index);
-                                        _drillDownCategory(category);
+                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          child: Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: SizedBox(
+                              height: 220,
+                              child: PieChart(
+                                PieChartData(
+                                  pieTouchData: PieTouchData(
+                                    touchCallback: (FlTouchEvent event, pieTouchResponse) {
+                                      if (event is FlTapUpEvent &&
+                                          pieTouchResponse != null &&
+                                          pieTouchResponse.touchedSection != null) {
+                                        final index = pieTouchResponse.touchedSection!.touchedSectionIndex;
+                                        if (index >= 0 && index < activeTotals.length) {
+                                          final category = activeTotals.keys.elementAt(index);
+                                          _drillDownCategory(category);
+                                        }
                                       }
-                                    }
-                                  },
-                                ),
-                                sections: activeTotals.entries.map((entry) {
-                                  final percentage = (entry.value / activeTotalAmount) * 100;
-                                  final color = Category.getColor(entry.key);
+                                    },
+                                  ),
+                                  sections: activeTotals.entries.map((entry) {
+                                    final percentage = (entry.value / activeTotalAmount) * 100;
+                                    final color = Category.getColor(entry.key);
 
-                                  return PieChartSectionData(
-                                    color: color,
-                                    value: entry.value,
-                                    title: percentage >= 8 ? '${percentage.toStringAsFixed(0)}%' : '',
-                                    radius: 65,
-                                    titleStyle: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  );
-                                }).toList(),
-                                sectionsSpace: 2,
-                                centerSpaceRadius: 36,
+                                    return PieChartSectionData(
+                                      color: color,
+                                      value: entry.value,
+                                      title: percentage >= 8 ? '${percentage.toStringAsFixed(0)}%' : '',
+                                      radius: 65,
+                                      titleStyle: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                      ),
+                                    );
+                                  }).toList(),
+                                  sectionsSpace: 2,
+                                  centerSpaceRadius: 36,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
+                        const SizedBox(height: 16),
 
-                      // Category Details List with Progress Bar & Tap to Drill Down
-                      Card(
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          side: BorderSide(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                        // Category Details List with Progress Bar & Tap to Drill Down
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            ),
                           ),
-                        ),
-                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: activeTotals.length,
-                          separatorBuilder: (context, index) => Divider(
-                            height: 1,
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
-                          ),
-                          itemBuilder: (context, index) {
-                            final entry = activeTotals.entries.elementAt(index);
-                            final percentage = (entry.value / activeTotalAmount) * 100;
-                            final color = Category.getColor(entry.key);
+                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: activeTotals.length,
+                            separatorBuilder: (context, index) => Divider(
+                              height: 1,
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                            ),
+                            itemBuilder: (context, index) {
+                              final entry = activeTotals.entries.elementAt(index);
+                              final percentage = (entry.value / activeTotalAmount) * 100;
+                              final color = Category.getColor(entry.key);
 
-                            return InkWell(
-                              onTap: () => _drillDownCategory(entry.key),
-                              borderRadius: BorderRadius.circular(16),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      width: 38,
-                                      height: 38,
-                                      decoration: BoxDecoration(
-                                        color: color.withValues(alpha: isDark ? 0.22 : 0.12),
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: color.withValues(alpha: isDark ? 0.45 : 0.3),
-                                          width: 0.8,
-                                        ),
-                                      ),
-                                      child: Center(
-                                        child: Icon(
-                                          Category.getMaterialIcon(entry.key),
-                                          size: 18,
-                                          color: color,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                entry.key,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 13.5,
-                                                ),
-                                              ),
-                                              Text(
-                                                '₹${NumberFormat('#,##,###.00').format(entry.value)}',
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 13.5,
-                                                ),
-                                              ),
-                                            ],
+                              return InkWell(
+                                onTap: () => _drillDownCategory(entry.key),
+                                borderRadius: BorderRadius.circular(16),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: BoxDecoration(
+                                          color: color.withValues(alpha: isDark ? 0.22 : 0.12),
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: color.withValues(alpha: isDark ? 0.45 : 0.3),
+                                            width: 0.8,
                                           ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: ClipRRect(
-                                                  borderRadius: BorderRadius.circular(4),
-                                                  child: LinearProgressIndicator(
-                                                    value: percentage / 100,
-                                                    backgroundColor: isDark
-                                                        ? const Color(0xFF334155)
-                                                        : const Color(0xFFE2E8F0),
-                                                    valueColor: AlwaysStoppedAnimation<Color>(color),
-                                                    minHeight: 5,
+                                        ),
+                                        child: Center(
+                                          child: Icon(
+                                            Category.getMaterialIcon(entry.key),
+                                            size: 18,
+                                            color: color,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Row(
+                                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                              children: [
+                                                Text(
+                                                  entry.key,
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 13.5,
                                                   ),
                                                 ),
-                                              ),
-                                              const SizedBox(width: 8),
+                                                Text(
+                                                  '₹${NumberFormat('#,##,###.00').format(entry.value)}',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w700,
+                                                    fontSize: 13.5,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 6),
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: ClipRRect(
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    child: LinearProgressIndicator(
+                                                      value: percentage / 100,
+                                                      backgroundColor: isDark
+                                                          ? const Color(0xFF334155)
+                                                          : const Color(0xFFE2E8F0),
+                                                      valueColor: AlwaysStoppedAnimation<Color>(color),
+                                                      minHeight: 5,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  '${percentage.toStringAsFixed(1)}%',
+                                                  style: TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: isDark
+                                                        ? const Color(0xFF94A3B8)
+                                                        : const Color(0xFF64748B),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 18,
+                                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.all(36),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.pie_chart_outline_rounded,
+                                size: 48,
+                                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No ${_chartType == TransactionType.debit ? 'expense' : 'income'} category data for this month',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ] else ...[
+                      // Merchant View Mode Rendering
+                      if (_topMerchants.isNotEmpty) ...[
+                        Card(
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                            side: BorderSide(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                            ),
+                          ),
+                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _topMerchants.length,
+                            separatorBuilder: (context, index) => Divider(
+                              height: 1,
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                            ),
+                            itemBuilder: (context, index) {
+                              final merchant = _topMerchants[index];
+                              final rank = index + 1;
+                              Color badgeColor;
+                              String badgeText;
+
+                              if (rank == 1) {
+                                badgeColor = const Color(0xFFEAB308); // Gold
+                                badgeText = '🥇 #1';
+                              } else if (rank == 2) {
+                                badgeColor = const Color(0xFF94A3B8); // Silver
+                                badgeText = '🥈 #2';
+                              } else if (rank == 3) {
+                                badgeColor = const Color(0xFFD97706); // Bronze
+                                badgeText = '🥉 #3';
+                              } else {
+                                badgeColor = isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8);
+                                badgeText = '#$rank';
+                              }
+
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: badgeColor.withValues(alpha: 0.15),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Text(
+                                            badgeText,
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                              color: badgeColor,
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
                                               Text(
-                                                '${percentage.toStringAsFixed(1)}%',
+                                                merchant.merchantName,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              Text(
+                                                '${merchant.transactionCount} ${merchant.transactionCount == 1 ? "txn" : "txns"} • ${merchant.percentage.toStringAsFixed(1)}% of total',
                                                 style: TextStyle(
                                                   fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: isDark
-                                                      ? const Color(0xFF94A3B8)
-                                                      : const Color(0xFF64748B),
+                                                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
                                                 ),
                                               ),
                                             ],
                                           ),
-                                        ],
-                                      ),
+                                        ),
+                                        Text(
+                                          '₹${NumberFormat('#,##,###.00').format(merchant.totalAmount)}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
+                                            color: _chartType == TransactionType.debit
+                                                ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
+                                                : (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 8),
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                                    const SizedBox(height: 8),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: (merchant.percentage / 100).clamp(0.0, 1.0),
+                                        minHeight: 5,
+                                        backgroundColor: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          badgeColor,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ] else ...[
-                      Container(
-                        padding: const EdgeInsets.all(36),
-                        alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                              );
+                            },
                           ),
                         ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              Icons.pie_chart_outline_rounded,
-                              size: 48,
-                              color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                      ] else ...[
+                        Container(
+                          padding: const EdgeInsets.all(36),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
                             ),
-                            const SizedBox(height: 12),
-                            Text(
-                              'No ${_chartType == TransactionType.debit ? 'expense' : 'income'} data for this month',
-                              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                            ),
-                          ],
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.storefront_rounded,
+                                size: 48,
+                                color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                'No ${_chartType == TransactionType.debit ? 'expense' : 'income'} merchant data for this month',
+                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
+                      ],
                     ],
 
                     const SizedBox(height: 32),

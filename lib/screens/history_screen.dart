@@ -398,6 +398,145 @@ class HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  IconData _getPresetIcon(TimeFilterPreset preset) {
+    switch (preset) {
+      case TimeFilterPreset.allTime:
+        return Icons.all_inclusive_rounded;
+      case TimeFilterPreset.thisMonth:
+        return Icons.calendar_month_rounded;
+      case TimeFilterPreset.lastMonth:
+        return Icons.history_rounded;
+      case TimeFilterPreset.last30Days:
+        return Icons.update_rounded;
+      case TimeFilterPreset.thisYear:
+        return Icons.date_range_rounded;
+      case TimeFilterPreset.specificMonth:
+        return Icons.event_rounded;
+      case TimeFilterPreset.customRange:
+        return Icons.edit_calendar_rounded;
+    }
+  }
+
+  void _showTimeFilterPickerSheet(BuildContext context) {
+    HapticFeedback.selectionClick();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) {
+        return Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Drag handle bar
+              Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF475569) : const Color(0xFFCBD5E1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Select Time Range',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: TimeFilterPreset.values.length,
+                  separatorBuilder: (context, index) => Divider(
+                    height: 1,
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9),
+                  ),
+                  itemBuilder: (context, index) {
+                    final preset = TimeFilterPreset.values[index];
+                    final isSelected = _selectedTimePreset == preset;
+                    String label = preset.displayName;
+                    if (preset == TimeFilterPreset.specificMonth && _filterMonth != null) {
+                      label = 'Month: ${DateFormat('MMM yyyy').format(_filterMonth!)}';
+                    } else if (preset == TimeFilterPreset.customRange && _customDateRange != null) {
+                      label = 'Range: ${DateFormat('MMM d').format(_customDateRange!.start)} - ${DateFormat('MMM d').format(_customDateRange!.end)}';
+                    }
+
+                    return InkWell(
+                      onTap: () {
+                        Navigator.of(context).pop();
+                        _onTimePresetChanged(preset);
+                      },
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? const Color(0xFF2563EB).withValues(alpha: 0.15)
+                                    : (isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                _getPresetIcon(preset),
+                                size: 18,
+                                color: isSelected
+                                    ? const Color(0xFF2563EB)
+                                    : (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                  color: isSelected
+                                      ? const Color(0xFF2563EB)
+                                      : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                ),
+                              ),
+                            ),
+                            if (isSelected)
+                              const Icon(
+                                Icons.check_circle_rounded,
+                                color: Color(0xFF2563EB),
+                                size: 20,
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _deletePayment(Payment payment) async {
     HapticFeedback.mediumImpact();
     final confirmed = await showDialog<bool>(
@@ -759,47 +898,70 @@ class HistoryScreenState extends State<HistoryScreen> {
                             ),
                             const SizedBox(width: 8),
 
-                            // Time Filter Dropdown / Picker
+                             // Time Filter Picker Button
                             Expanded(
-                              child: Container(
-                                height: 42,
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => _showTimeFilterPickerSheet(context),
                                   borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.white.withValues(alpha: 0.08)
-                                        : const Color(0xFFE2E8F0),
-                                  ),
-                                ),
-                                child: DropdownButtonHideUnderline(
-                                  child: DropdownButton<TimeFilterPreset>(
-                                    value: _selectedTimePreset,
-                                    isExpanded: true,
-                                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 18),
-                                    style: TextStyle(
-                                      fontSize: 12.5,
-                                      fontWeight: FontWeight.w600,
-                                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                                  child: Container(
+                                    height: 42,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    decoration: BoxDecoration(
+                                      color: _selectedTimePreset != TimeFilterPreset.allTime
+                                          ? const Color(0xFF2563EB).withValues(alpha: isDark ? 0.22 : 0.12)
+                                          : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9)),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: _selectedTimePreset != TimeFilterPreset.allTime
+                                            ? const Color(0xFF2563EB).withValues(alpha: isDark ? 0.5 : 0.35)
+                                            : (isDark
+                                                ? Colors.white.withValues(alpha: 0.08)
+                                                : const Color(0xFFE2E8F0)),
+                                        width: _selectedTimePreset != TimeFilterPreset.allTime ? 1.2 : 1.0,
+                                      ),
                                     ),
-                                    items: TimeFilterPreset.values.map((preset) {
-                                      String label = preset.displayName;
-                                      if (preset == TimeFilterPreset.specificMonth && _filterMonth != null) {
-                                        label = DateFormat('MMM yyyy').format(_filterMonth!);
-                                      }
-                                      return DropdownMenuItem(
-                                        value: preset,
-                                        child: Text(
-                                          label,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(fontSize: 12),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 26,
+                                          height: 26,
+                                          decoration: BoxDecoration(
+                                            color: _selectedTimePreset == TimeFilterPreset.allTime
+                                                ? (isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0))
+                                                : const Color(0xFF2563EB).withValues(alpha: isDark ? 0.3 : 0.2),
+                                            borderRadius: BorderRadius.circular(7),
+                                          ),
+                                          child: Icon(
+                                            _getPresetIcon(_selectedTimePreset),
+                                            size: 14,
+                                            color: _selectedTimePreset == TimeFilterPreset.allTime
+                                                ? (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569))
+                                                : const Color(0xFF2563EB),
+                                          ),
                                         ),
-                                      );
-                                    }).toList(),
-                                    onChanged: (val) {
-                                      if (val != null) _onTimePresetChanged(val);
-                                    },
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            _timeFilterLabel,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 12.5,
+                                              fontWeight: FontWeight.w600,
+                                              color: _selectedTimePreset != TimeFilterPreset.allTime
+                                                  ? (isDark ? Colors.white : const Color(0xFF2563EB))
+                                                  : (isDark ? Colors.white : const Color(0xFF0F172A)),
+                                            ),
+                                          ),
+                                        ),
+                                        Icon(
+                                          Icons.keyboard_arrow_down_rounded,
+                                          size: 18,
+                                          color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),

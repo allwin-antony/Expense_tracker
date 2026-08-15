@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/payment.dart';
+import '../parser/merchant_categorizer.dart';
 
 class FilteredSummaryMetrics {
   final double totalExpense;
@@ -13,6 +14,28 @@ class FilteredSummaryMetrics {
     required this.totalIncome,
     required this.totalCount,
   });
+}
+
+class MerchantSummary {
+  final String merchantName;
+  final double totalAmount;
+  final int transactionCount;
+  final double percentage;
+
+  MerchantSummary({
+    required this.merchantName,
+    required this.totalAmount,
+    required this.transactionCount,
+    required this.percentage,
+  });
+}
+
+class _MerchantAcc {
+  final String name;
+  double total;
+  int count;
+
+  _MerchantAcc({required this.name, required this.total, required this.count});
 }
 
 class DatabaseService {
@@ -472,5 +495,50 @@ class DatabaseService {
       where: 'merchant_pattern = ?',
       whereArgs: [cleanMerchant],
     );
+  }
+
+  /// Top Merchants for month with spending sums, transaction counts, and percentages
+  Future<List<MerchantSummary>> getTopMerchantsForMonth(
+    DateTime month, {
+    TransactionType type = TransactionType.debit,
+    int limit = 10,
+  }) async {
+    final payments = await getPaymentsByMonth(month);
+    final validPayments = payments.where((p) => p.type == type && !p.isExcludedFromBudget).toList();
+
+    if (validPayments.isEmpty) return [];
+
+    final totalMonthSpend = validPayments.fold<double>(0.0, (sum, p) => sum + p.amount);
+    final Map<String, _MerchantAcc> map = {};
+
+    for (final p in validPayments) {
+      final rawDesc = p.description.trim();
+      final cleanName = rawDesc.isNotEmpty
+          ? MerchantCategorizer.cleanMerchantName(rawDesc)
+          : (type == TransactionType.debit ? 'Other Expense' : 'Other Income');
+      final key = cleanName.isEmpty ? 'Other' : cleanName;
+
+      if (!map.containsKey(key)) {
+        map[key] = _MerchantAcc(name: key, total: 0.0, count: 0);
+      }
+      map[key]!.total += p.amount;
+      map[key]!.count += 1;
+    }
+
+    final list = map.values.map((acc) {
+      final percentage = totalMonthSpend > 0 ? (acc.total / totalMonthSpend) * 100.0 : 0.0;
+      return MerchantSummary(
+        merchantName: acc.name,
+        totalAmount: acc.total,
+        transactionCount: acc.count,
+        percentage: percentage,
+      );
+    }).toList();
+
+    list.sort((a, b) => b.totalAmount.compareTo(a.totalAmount));
+    if (list.length > limit) {
+      return list.sublist(0, limit);
+    }
+    return list;
   }
 }
