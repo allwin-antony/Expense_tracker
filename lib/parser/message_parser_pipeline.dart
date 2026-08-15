@@ -88,10 +88,36 @@ class MessageParserPipeline {
 
     // 1. Extract Amount
     double? extractedAmount;
-    final prefixMatch = FinancialRegexPatterns.amountRegex.firstMatch(cleanText);
-    if (prefixMatch != null && prefixMatch.group(1) != null) {
-      final amountStr = prefixMatch.group(1)!.replaceAll(',', '').trim();
-      extractedAmount = double.tryParse(amountStr);
+
+    // Check if SMS contains balance phrases (e.g. "passbook balance against ... is Rs. 46,119")
+    final balancePhraseRegex = RegExp(
+      r'(?:passbook\s*balance|available\s*balance|avl\s*bal|account\s*balance|bal|bal:)\s*(?:against\s+[A-Za-z0-9*]+\s+)?(?:is\s*)?(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)',
+      caseSensitive: false,
+    );
+
+    final allMatches = FinancialRegexPatterns.amountRegex.allMatches(cleanText).toList();
+    if (allMatches.length > 1) {
+      final balanceMatch = balancePhraseRegex.firstMatch(cleanText);
+      final balanceAmountStr = balanceMatch?.group(1)?.replaceAll(',', '').trim();
+
+      for (final match in allMatches) {
+        final valStr = match.group(1)?.replaceAll(',', '').trim();
+        if (valStr != null && valStr != balanceAmountStr) {
+          final candidate = double.tryParse(valStr);
+          if (candidate != null && candidate > 0) {
+            extractedAmount = candidate;
+            break;
+          }
+        }
+      }
+    }
+
+    if (extractedAmount == null) {
+      final prefixMatch = FinancialRegexPatterns.amountRegex.firstMatch(cleanText);
+      if (prefixMatch != null && prefixMatch.group(1) != null) {
+        final amountStr = prefixMatch.group(1)!.replaceAll(',', '').trim();
+        extractedAmount = double.tryParse(amountStr);
+      }
     }
 
     if (extractedAmount == null) {

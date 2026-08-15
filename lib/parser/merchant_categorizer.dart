@@ -371,6 +371,16 @@ class MerchantCategorizer {
           confidence: 0.90,
         );
       }
+      if (_hasWord(fullMessage, 'contribution') ||
+          _hasWord(fullMessage, 'passbook') ||
+          _hasWord(fullMessage, 'epfo') ||
+          _hasWord(fullMessage, 'provident')) {
+        return CategorizationResult(
+          cleanMerchant: 'EPFO Contribution',
+          category: 'Investments',
+          confidence: 0.95,
+        );
+      }
     }
 
     // 2. Direct merchant dictionary with word boundary matching

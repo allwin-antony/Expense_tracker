@@ -82,6 +82,17 @@ void main() {
       expect(result.payment?.category, 'Refund');
     });
 
+    test('Parses EPFO Passbook Contribution SMS accurately', () {
+      const sms = 'Dear XXXXXXXX7897, your passbook balance against KRTVM**************0630 is Rs. 46,119/-. Contribution of Rs. 2,350/- for due month Jun-26 has been received.';
+      final result = parser.parse(sms);
+
+      expect(result.isSuccess, true);
+      expect(result.payment?.amount, 2350.0);
+      expect(result.payment?.type, TransactionType.credit);
+      expect(result.payment?.category, 'Investments');
+      expect(result.payment?.description, 'EPFO Contribution');
+    });
+
     test('Rejects OTP security message', () {
       const sms = 'Your OTP for transaction of INR 500.00 at Swiggy is 482910. Do not share this OTP with anyone.';
       final result = parser.parse(sms);
