@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 
 /// FastText Subword N-Gram Financial SMS Classifier Trainer in Pure Dart
 /// 
@@ -55,7 +56,6 @@ class FastTextTrainer {
   final List<List<double>> embeddings; // [numBuckets][embeddingDim]
   final List<List<double>> outputWeights; // [numClasses][embeddingDim]
   final List<double> outputBias; // [numClasses]
-  final Random _rng = Random(42);
 
   FastTextTrainer()
       : embeddings = List.generate(
@@ -94,8 +94,8 @@ class FastTextTrainer {
       logits[c] = sum;
     }
 
-    final maxL = logits.reduce(max);
-    final exps = logits.map((l) => exp(l - maxL)).toList();
+    final maxLogit = logits.reduce(max);
+    final exps = logits.map((l) => exp(l - maxLogit)).toList();
     final sumExp = exps.reduce((a, b) => a + b);
     return exps.map((e) => e / sumExp).toList();
   }
@@ -104,7 +104,6 @@ class FastTextTrainer {
     final h = computeHidden(features);
     final probs = predictProbs(features);
 
-    // Compute gradient for output layer & backprop to hidden
     final dLogits = List.filled(numClasses, 0.0);
     for (var c = 0; c < numClasses; c++) {
       dLogits[c] = probs[c] - (c == label ? 1.0 : 0.0);
@@ -119,7 +118,6 @@ class FastTextTrainer {
       }
     }
 
-    // Backprop to embedding table
     final scale = lr / features.length;
     for (final idx in features) {
       for (var d = 0; d < embeddingDim; d++) {
@@ -129,15 +127,38 @@ class FastTextTrainer {
   }
 
   Map<String, dynamic> exportWeights() {
+    double embMin = double.infinity;
+    double embMax = -double.infinity;
+    for (final row in embeddings) {
+      for (final v in row) {
+        if (v < embMin) embMin = v;
+        if (v > embMax) embMax = v;
+      }
+    }
+
+    final bytes = Uint8List(numBuckets * embeddingDim);
+    final range = (embMax - embMin) == 0 ? 1.0 : (embMax - embMin);
+    int index = 0;
+    for (var i = 0; i < numBuckets; i++) {
+      for (var j = 0; j < embeddingDim; j++) {
+        final v = embeddings[i][j];
+        final q = ((v - embMin) / range * 255.0).round().clamp(0, 255);
+        bytes[index++] = q;
+      }
+    }
+
     return {
       'model': 'FastText-Financial-Classifier-v1',
+      'quantized': true,
       'numClasses': numClasses,
       'numBuckets': numBuckets,
       'embeddingDim': embeddingDim,
       'minNgram': minNgram,
       'maxNgram': maxNgram,
       'labels': ['GENUINE_TRANSACTION', 'PROMOTIONAL_SPAM', 'OTP_SECURITY', 'INFORMATIONAL'],
-      'embeddings': embeddings.map((row) => row.map((v) => double.parse(v.toStringAsFixed(4))).toList()).toList(),
+      'embMin': double.parse(embMin.toStringAsFixed(6)),
+      'embMax': double.parse(embMax.toStringAsFixed(6)),
+      'embeddingsBase64': base64Encode(bytes),
       'outputWeights': outputWeights.map((row) => row.map((v) => double.parse(v.toStringAsFixed(4))).toList()).toList(),
       'outputBias': outputBias.map((v) => double.parse(v.toStringAsFixed(4))).toList(),
     };
@@ -150,9 +171,21 @@ List<Map<String, dynamic>> generateDataset() {
   final samples = <Map<String, dynamic>>[];
 
   final banks = [
-    'HDFC Bank', 'SBI', 'ICICI Bank', 'Axis Bank', 'Kotak Bank',
-    'Punjab National Bank', 'Bank of Baroda', 'Canara Bank', 'IndusInd Bank',
-    'YES Bank', 'IDFC FIRST Bank', 'Federal Bank', 'RBL Bank', 'Union Bank'
+    // Public Sector Banks
+    'HDFC Bank', 'SBI', 'State Bank of India', 'ICICI Bank', 'Axis Bank', 'Kotak Bank',
+    'Punjab National Bank', 'PNB', 'Bank of Baroda', 'BOB', 'Canara Bank', 'Union Bank of India',
+    'Bank of India', 'Indian Bank', 'Central Bank of India', 'Indian Overseas Bank', 'IOB',
+    'UCO Bank', 'Bank of Maharashtra', 'Punjab & Sind Bank',
+    // Private Sector Banks
+    'IndusInd Bank', 'YES Bank', 'IDFC FIRST Bank', 'Federal Bank', 'RBL Bank', 'Bandhan Bank',
+    'Karur Vysya Bank', 'City Union Bank', 'South Indian Bank', 'J&K Bank', 'Jammu & Kashmir Bank',
+    'Tamilnad Mercantile Bank', 'Karnataka Bank', 'CSB Bank', 'DCB Bank',
+    // Small Finance Banks
+    'AU Small Finance Bank', 'Equitas Small Finance Bank', 'Ujjivan Small Finance Bank',
+    'Jana Small Finance Bank', 'Capital Small Finance Bank', 'Utkarsh Small Finance Bank', 'Suryoday Small Finance Bank',
+    // Payments Banks & Fintech
+    'Paytm Payments Bank', 'Airtel Payments Bank', 'IPPB', 'India Post Payments Bank', 'NSDL Bank', 'Fino Payments Bank',
+    'Cred', 'OneCard', 'Amex', 'Citibank', 'HSBC', 'Standard Chartered'
   ];
 
   final merchants = [

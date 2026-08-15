@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 
 /// Semantic classification classes for FastText SMS model
@@ -86,8 +87,23 @@ class FastTextEngine {
     _minNgram = jsonMap['minNgram'] as int? ?? 3;
     _maxNgram = jsonMap['maxNgram'] as int? ?? 6;
 
-    final embRaw = jsonMap['embeddings'] as List<dynamic>;
-    _embeddings = embRaw.map((row) => (row as List<dynamic>).map((v) => (v as num).toDouble()).toList()).toList();
+    if (jsonMap.containsKey('embeddingsBase64') && jsonMap['quantized'] == true) {
+      final base64Str = jsonMap['embeddingsBase64'] as String;
+      final Uint8List bytes = base64Decode(base64Str);
+      final embMin = (jsonMap['embMin'] as num).toDouble();
+      final embMax = (jsonMap['embMax'] as num).toDouble();
+      final range = embMax - embMin;
+
+      _embeddings = List.generate(_numBuckets, (i) {
+        return List.generate(_embeddingDim, (j) {
+          final q = bytes[i * _embeddingDim + j];
+          return embMin + (q / 255.0) * range;
+        });
+      });
+    } else if (jsonMap.containsKey('embeddings')) {
+      final embRaw = jsonMap['embeddings'] as List<dynamic>;
+      _embeddings = embRaw.map((row) => (row as List<dynamic>).map((v) => (v as num).toDouble()).toList()).toList();
+    }
 
     final weightsRaw = jsonMap['outputWeights'] as List<dynamic>;
     _outputWeights = weightsRaw.map((row) => (row as List<dynamic>).map((v) => (v as num).toDouble()).toList()).toList();

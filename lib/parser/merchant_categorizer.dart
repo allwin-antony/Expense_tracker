@@ -180,7 +180,7 @@ class MerchantCategorizer {
     'akasa air': 'Travel',
     'oyo': 'Travel',
 
-    // Investment
+    // Investment & Wealth
     'zerodha': 'Investment',
     'groww': 'Investment',
     'upstox': 'Investment',
@@ -191,6 +191,33 @@ class MerchantCategorizer {
     'indmoney': 'Investment',
     'etmoney': 'Investment',
     'mutual fund': 'Investment',
+    'changejar': 'Investment',
+    'jar app': 'Investment',
+    'multipl': 'Investment',
+
+    // Financial Services & UPI Apps
+    'cred': 'Bills & Utilities',
+    'cred club': 'Bills & Utilities',
+    'bharatpe': 'Financial Services',
+    'bajaj finserv': 'Financial Services',
+    'mobikwik': 'Financial Services',
+    'money view': 'Financial Services',
+    'cheq': 'Financial Services',
+    'fave': 'Financial Services',
+    'slice': 'Financial Services',
+    'jupiter': 'Financial Services',
+    'fi money': 'Financial Services',
+    'navi': 'Financial Services',
+    'kreditbee': 'Financial Services',
+    'freo': 'Financial Services',
+    'novio': 'Financial Services',
+    'kotak811': 'Financial Services',
+    'lxme': 'Investment',
+    'paytm': 'Financial Services',
+    'phonepe': 'Financial Services',
+    'google pay': 'Financial Services',
+    'gpay': 'Financial Services',
+    'amazon pay': 'Financial Services',
 
     // Personal Care
     'urban company': 'Personal Care',
