@@ -11,6 +11,28 @@ class CategorizationResult {
 }
 
 class MerchantCategorizer {
+  // User custom merchant rules loaded dynamically from SQLite
+  static Map<String, String> _userCustomRules = {};
+
+  /// Load custom user merchant rules from database
+  static void loadUserRules(Map<String, String> rules) {
+    _userCustomRules = Map.from(rules);
+  }
+
+  /// Set or update a single custom merchant rule in memory
+  static void setUserRule(String merchant, String category) {
+    final cleanKey = merchant.trim().toLowerCase();
+    if (cleanKey.isNotEmpty) {
+      _userCustomRules[cleanKey] = category;
+    }
+  }
+
+  /// Delete a custom merchant rule from memory
+  static void deleteUserRule(String merchant) {
+    final cleanKey = merchant.trim().toLowerCase();
+    _userCustomRules.remove(cleanKey);
+  }
+
   // Exact merchant mapping
   static final Map<String, String> _merchantCategoryMap = {
     // Food & Dining
@@ -295,6 +317,24 @@ class MerchantCategorizer {
     required String fullMessage,
     required bool isIncome,
   }) {
+    // 0. User Custom Merchant Rules (Highest Priority)
+    final cleanRaw = rawMerchant.trim().toLowerCase();
+    final cleanMerchant = cleanMerchantName(rawMerchant);
+    final cleanMerchantLower = cleanMerchant.toLowerCase();
+
+    for (final entry in _userCustomRules.entries) {
+      final pattern = entry.key;
+      if (cleanRaw.contains(pattern) ||
+          cleanMerchantLower.contains(pattern) ||
+          (pattern.length > 2 && _hasWord(fullMessage, pattern))) {
+        return CategorizationResult(
+          cleanMerchant: cleanMerchant.isNotEmpty ? cleanMerchant : cleanMerchantName(pattern),
+          category: entry.value,
+          confidence: 1.0,
+        );
+      }
+    }
+
     // 1. If it is an Income transaction, prioritize Income categories
     if (isIncome) {
       if (_hasWord(fullMessage, 'refund') || _hasWord(fullMessage, 'reversal') || _hasWord(fullMessage, 'reversed')) {

@@ -40,7 +40,7 @@ class DatabaseService {
 
     return await openDatabase(
       databasePath,
-      version: 4,
+      version: 5,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE payments(
@@ -58,6 +58,14 @@ class DatabaseService {
             notes TEXT,
             isExcluded INTEGER NOT NULL DEFAULT 0,
             budgetMonth TEXT
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE custom_merchant_rules(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            merchant_pattern TEXT UNIQUE NOT NULL,
+            category TEXT NOT NULL,
+            created_at TEXT NOT NULL
           )
         ''');
       },
@@ -90,6 +98,18 @@ class DatabaseService {
         if (oldVersion < 4) {
           try {
             await db.execute("ALTER TABLE payments ADD COLUMN budgetMonth TEXT");
+          } catch (_) {}
+        }
+        if (oldVersion < 5) {
+          try {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS custom_merchant_rules(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                merchant_pattern TEXT UNIQUE NOT NULL,
+                category TEXT NOT NULL,
+                created_at TEXT NOT NULL
+              )
+            ''');
           } catch (_) {}
         }
       },
@@ -409,5 +429,48 @@ class DatabaseService {
     }
 
     return categoryTotals;
+  }
+
+  /// Save or update a custom merchant categorization rule
+  Future<void> setCustomMerchantRule(String merchant, String category) async {
+    final cleanMerchant = merchant.trim().toLowerCase();
+    if (cleanMerchant.isEmpty) return;
+
+    final db = await database;
+    await db.insert(
+      'custom_merchant_rules',
+      {
+        'merchant_pattern': cleanMerchant,
+        'category': category,
+        'created_at': DateTime.now().toIso8601String(),
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  /// Get all user custom merchant rules as Map<String, String>
+  Future<Map<String, String>> getAllCustomMerchantRules() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('custom_merchant_rules');
+    final Map<String, String> rules = {};
+    for (final row in maps) {
+      final merchant = row['merchant_pattern'] as String?;
+      final category = row['category'] as String?;
+      if (merchant != null && category != null) {
+        rules[merchant] = category;
+      }
+    }
+    return rules;
+  }
+
+  /// Delete a custom merchant rule
+  Future<void> deleteCustomMerchantRule(String merchant) async {
+    final cleanMerchant = merchant.trim().toLowerCase();
+    final db = await database;
+    await db.delete(
+      'custom_merchant_rules',
+      where: 'merchant_pattern = ?',
+      whereArgs: [cleanMerchant],
+    );
   }
 }

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/category.dart';
 import '../models/payment.dart';
+import '../services/database_service.dart';
+import '../parser/merchant_categorizer.dart';
 import 'category_picker_sheet.dart';
 
 class AddPaymentDialog extends StatefulWidget {
@@ -204,6 +206,12 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
         isExcludedFromBudget: _isExcludedFromBudget,
         budgetMonth: _selectedBudgetMonth,
       );
+
+      final merchantName = _descriptionController.text.trim();
+      if (merchantName.isNotEmpty) {
+        DatabaseService.instance.setCustomMerchantRule(merchantName, _selectedCategory);
+        MerchantCategorizer.setUserRule(merchantName, _selectedCategory);
+      }
 
       widget.onPaymentAdded(payment);
       Navigator.of(context).pop();
