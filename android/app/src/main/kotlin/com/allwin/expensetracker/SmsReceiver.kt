@@ -43,6 +43,12 @@ class SmsReceiver : BroadcastReceiver() {
 
                 Log.d(TAG, "SMS received from $sender")
 
+                // Reject personal phone numbers - only accept official TRAI headers
+                if (!isTraiHeader(sender)) {
+                    Log.d(TAG, "Ignoring SMS from non-TRAI personal phone number: $sender")
+                    return
+                }
+
                 // 1. If Flutter UI is active, forward to live stream listener
                 smsListener?.invoke(smsData)
 
@@ -54,6 +60,15 @@ class SmsReceiver : BroadcastReceiver() {
         } catch (e: Exception) {
             Log.e(TAG, "Error processing incoming SMS in SmsReceiver", e)
         }
+    }
+
+    private fun isTraiHeader(sender: String): Boolean {
+        if (sender.isBlank()) return true
+        val clean = sender.trim().replace(Regex("[\\s\\-]"), "")
+        if (clean.matches(Regex("^\\+?\\d{7,15}$"))) {
+            return false
+        }
+        return clean.any { it.isLetter() }
     }
 
     private fun isFinancialSms(body: String): Boolean {

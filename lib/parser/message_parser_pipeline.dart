@@ -84,8 +84,16 @@ class MessageParserPipeline {
   /// Parses a bank SMS, transaction notification, or clipboard text
   ParsedTransactionResult parse(
     String text, {
+    String? sender,
     PaymentSource source = PaymentSource.sms,
   }) {
+    // 0. Validate Sender ID (Must be an official TRAI header, not a personal phone number)
+    if (sender != null && !FinancialRegexPatterns.isLegitimateTraiHeader(sender)) {
+      return ParsedTransactionResult.failure(
+        'Message rejected: Sender "$sender" is a personal phone number, not an official TRAI financial header.',
+      );
+    }
+
     final cleanText = text.replaceAll('\n', ' ').trim();
 
     if (!isFinancialMessage(cleanText)) {

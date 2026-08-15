@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_sms_inbox/flutter_sms_inbox.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/payment.dart';
+import '../parser/financial_regex_patterns.dart';
 import '../parser/message_parser_pipeline.dart';
 import 'database_service.dart';
 import 'notification_service.dart';
@@ -178,6 +179,7 @@ class SmsSyncService {
 
     for (final item in rawItems) {
       final body = item['body'] as String? ?? '';
+      final sender = item['sender'] as String?;
       final timestamp = item['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
       final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
 
@@ -185,6 +187,7 @@ class SmsSyncService {
 
       final parseResult = MessageParserPipeline.instance.parse(
         body,
+        sender: sender,
         source: PaymentSource.sms,
       );
 
@@ -223,10 +226,10 @@ class SmsSyncService {
         return SyncResult(isSuccess: true, totalSmsRead: 0, timeRangeLabel: timeRangeLabel);
       }
 
-      // Filter messages strictly within the target range if specified
-      final List<SmsMessage> filteredSms;
+      // Filter messages strictly within the target range and only from legitimate TRAI headers (reject personal numbers)
+      final List<SmsMessage> rangeFiltered;
       if (startDate != null || endDate != null) {
-        filteredSms = messages.where((msg) {
+        rangeFiltered = messages.where((msg) {
           final msgDate = msg.date;
           if (msgDate == null) return false;
           if (startDate != null && msgDate.isBefore(startDate.subtract(const Duration(seconds: 1)))) {
@@ -238,8 +241,12 @@ class SmsSyncService {
           return true;
         }).toList();
       } else {
-        filteredSms = messages;
+        rangeFiltered = messages;
       }
+
+      final filteredSms = rangeFiltered
+          .where((msg) => FinancialRegexPatterns.isLegitimateTraiHeader(msg.address))
+          .toList();
 
       onProgress?.call(0.4, 'Parsing ${filteredSms.length} messages in background isolate...');
 
@@ -358,13 +365,20 @@ class SmsSyncService {
         (event) async {
           if (event is Map) {
             final body = event['body'] as String? ?? '';
+            final sender = event['sender'] as String?;
             final timestamp = event['timestamp'] as num? ?? DateTime.now().millisecondsSinceEpoch;
             final date = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
 
             if (body.isEmpty) return;
 
+            // Reject personal phone numbers in live SMS stream
+            if (!FinancialRegexPatterns.isLegitimateTraiHeader(sender)) {
+              return;
+            }
+
             final parseResult = MessageParserPipeline.instance.parse(
               body,
+              sender: sender,
               source: PaymentSource.sms,
             );
 

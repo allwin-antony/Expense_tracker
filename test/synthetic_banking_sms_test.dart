@@ -310,5 +310,31 @@ void main() {
       expect(res.payment?.type, TransactionType.debit);
       expect(res.payment?.category, 'Food & Dining');
     });
+
+    test('#41 TRAI Sender Header Acceptance', () {
+      // Legitimate TRAI alphanumeric headers
+      const traiSenders = ['VK-SBIINB', 'VM-HDFCBK', 'AD-ICICIB', 'AX-AXISBK', 'JM-KOTAKB', 'BP-EPFOHO', 'JD-PAYTM', 'HDFCBK'];
+      for (final sender in traiSenders) {
+        final res = pipeline.parse(
+          'SBI: Rs.450.00 debited from A/c XX1234 on 16-08-26 for UPI txn to SWIGGY. Ref 612345678901.',
+          sender: sender,
+        );
+        expect(res.isSuccess, isTrue, reason: 'Sender $sender should be accepted as TRAI header');
+        expect(res.payment?.amount, 450.0);
+      }
+    });
+
+    test('#42 Personal Phone Number Rejection (Spoof / Prank Prevention)', () {
+      // Personal 10-digit / international phone numbers
+      const personalNumbers = ['+919876543210', '9876543210', '+91-98765-43210', '+14155552671', '09876543210', '919876543210'];
+      for (final number in personalNumbers) {
+        final res = pipeline.parse(
+          'SBI: Rs.450.00 debited from A/c XX1234 on 16-08-26 for UPI txn to SWIGGY. Ref 612345678901.',
+          sender: number,
+        );
+        expect(res.isSuccess, isFalse, reason: 'Personal number $number must be rejected');
+        expect(res.errorMessage, contains('personal phone number'));
+      }
+    });
   });
 }

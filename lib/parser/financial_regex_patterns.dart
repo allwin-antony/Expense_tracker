@@ -85,4 +85,24 @@ class FinancialRegexPatterns {
     RegExp(r'(?:for\s+)([A-Za-z0-9\s._\-&]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
     RegExp(r'(?:paid\s+to\s+)([A-Za-z0-9\s._\-&]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
   ];
+
+  /// Validates whether the sender is an official TRAI alphanumeric header and not a personal phone number
+  static bool isLegitimateTraiHeader(String? sender) {
+    if (sender == null || sender.trim().isEmpty) {
+      // Allow manual clipboard paste or text parsing when sender is not provided
+      return true;
+    }
+    final clean = sender.trim().replaceAll(RegExp(r'[\s\-]'), '');
+
+    // If sender consists only of digits and optional '+' (e.g. +919876543210, 9876543210, +14155552671)
+    // and is 7 or more digits, it is a personal phone number and must be rejected!
+    final isPurePhoneNumber = RegExp(r'^\+?\d{7,15}$').hasMatch(clean);
+    if (isPurePhoneNumber) {
+      return false;
+    }
+
+    // A legitimate TRAI header must contain alphabetic characters (e.g. "VK-SBIINB", "VM-HDFCBK", "PAYTM", "HDFCBK")
+    final hasLetters = RegExp(r'[A-Za-z]').hasMatch(clean);
+    return hasLetters;
+  }
 }
