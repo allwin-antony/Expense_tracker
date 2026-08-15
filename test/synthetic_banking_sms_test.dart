@@ -353,6 +353,15 @@ Call 18002586161/SMS BLOCK UPI to 7308080808''';
       expect(res.payment?.paymentMode, PaymentMode.upi);
     });
 
+    test('#44 Rejects HDFC Loan on Card Promotional Offer', () {
+      final sms = '''Important Update: HDFC Bank Card xx3177:
+Higher Rs. 75000 Loan on Card at the lowest interest rates! Check EMIs.
+https://1.hdfc.bank.in/HDFCBK/s/7q2JoEdV
+T&C''';
+      final res = pipeline.parse(sms);
+      expect(res.isSuccess, isFalse);
+    });
+
     group('89 Additional Phishing, Scam, and Real Transaction Validation Cases', () {
       final userCases = [
         // --- Unstructured Valid Transactions ---

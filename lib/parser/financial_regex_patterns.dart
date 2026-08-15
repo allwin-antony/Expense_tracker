@@ -8,8 +8,8 @@ class FinancialRegexPatterns {
   // Regex to reject promotional, loan offers, credit line ads, cashback offers, and marketing spam
   static final RegExp promotionalFilterRegex = RegExp(
     r'\b(?:'
-    r'pre[\s\-]?approved|pre[\s\-]?qualified|instant\s*loan|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|'
-    r'loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|'
+    r'pre[\s\-]?approved|pre[\s\-]?qualified|instant\s*loan|loan\s*on\s*(?:card|credit\s*card)|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|'
+    r'loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|check\s*emis?|lowest\s*interest\s*rates?|'
     r'congratulations|good\s*news|hurry|limited\s*(?:period\s*)?offer|offer\s*valid|'
     r'win\s*(?:upto|up\s*to)|chance\s*to\s*win|lucky\s*draw|coupon\s*code|voucher|'
     r'flat\s*(?:off|discount|rs)|upto\s*(?:rs\.?|inr|₹)|\bup\s*to\s*(?:rs\.?|inr|₹)|'
