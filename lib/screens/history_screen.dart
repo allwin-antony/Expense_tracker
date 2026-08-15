@@ -563,17 +563,30 @@ class HistoryScreenState extends State<HistoryScreen> {
     );
 
     if (confirmed == true && payment.id != null) {
+      final deletedPayment = payment;
       await DatabaseService.instance.deletePayment(payment.id!);
       if (mounted) {
         setState(() {
           _payments.removeWhere((p) => p.id == payment.id);
           _totalCount = (_totalCount - 1).clamp(0, 999999);
         });
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Transaction deleted'),
+            content: Text('Deleted "${deletedPayment.description}"'),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            action: SnackBarAction(
+              label: 'UNDO',
+              textColor: const Color(0xFF60A5FA),
+              onPressed: () async {
+                await DatabaseService.instance.addPayment(deletedPayment);
+                if (mounted) {
+                  _loadFilteredData();
+                }
+              },
+            ),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -616,27 +629,32 @@ class HistoryScreenState extends State<HistoryScreen> {
         });
       }
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
-                color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isExcluded
-                      ? 'Excluded from budget calculations'
-                      : 'Included in budget calculations',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
+          content: Text(
+            isExcluded
+                ? 'Excluded from budget'
+                : 'Included in budget',
           ),
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: const Color(0xFF60A5FA),
+            onPressed: () async {
+              await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
+              if (mounted) {
+                final idx = _payments.indexWhere((p) => p.id == payment.id);
+                if (idx != -1) {
+                  setState(() {
+                    _payments[idx] = payment.copyWith(isExcludedFromBudget: !isExcluded);
+                  });
+                }
+              }
+            },
+          ),
+          duration: const Duration(seconds: 4),
         ),
       );
     }

@@ -312,6 +312,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
 
     if (confirmed == true && payment.id != null) {
+      final deletedPayment = payment;
       await DatabaseService.instance.deletePayment(payment.id!);
       if (mounted) {
         setState(() {
@@ -319,11 +320,24 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _totalCount = (_totalCount - 1).clamp(0, 999999);
         });
         _updateMonthlyMetrics();
+
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Transaction deleted'),
+            content: Text('Deleted "${deletedPayment.description}"'),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            action: SnackBarAction(
+              label: 'UNDO',
+              textColor: const Color(0xFF60A5FA),
+              onPressed: () async {
+                await DatabaseService.instance.addPayment(deletedPayment);
+                if (mounted) {
+                  _refreshData();
+                }
+              },
+            ),
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -345,6 +359,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       _updateMonthlyMetrics();
 
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
@@ -358,14 +373,32 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Expanded(
                 child: Text(
                   isExcluded
-                      ? 'Excluded from budget calculations'
-                      : 'Included in budget calculations',
+                      ? 'Excluded from budget'
+                      : 'Included in budget',
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
                 ),
               ),
             ],
           ),
-          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          action: SnackBarAction(
+            label: 'UNDO',
+            textColor: const Color(0xFF60A5FA),
+            onPressed: () async {
+              await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
+              if (mounted) {
+                final idx = _payments.indexWhere((p) => p.id == payment.id);
+                if (idx != -1) {
+                  setState(() {
+                    _payments[idx] = payment.copyWith(isExcludedFromBudget: !isExcluded);
+                  });
+                }
+                _updateMonthlyMetrics();
+              }
+            },
+          ),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -409,26 +442,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           duration: const Duration(seconds: 2),
         ),
       );
-    }
-  }
-
-  void _openSmartParser() {
-    HapticFeedback.mediumImpact();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => SmartParserSheet(
-        onPaymentParsedAndSaved: (payment) async {
-          await DatabaseService.instance.addPayment(payment);
-          if (mounted) {
-            _refreshData();
-          }
-        },
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -466,11 +479,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 MaterialPageRoute(builder: (_) => const SettingsScreen()),
               );
             },
-          ),
-          IconButton(
-            icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF6366F1)),
-            tooltip: 'Test AI Smart Parser',
-            onPressed: _openSmartParser,
           ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
