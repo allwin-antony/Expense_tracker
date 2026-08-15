@@ -46,7 +46,9 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+    if (state == AppLifecycleState.paused) {
+      // Track timestamp only when app is genuinely minimized/backgrounded
+      // (Ignores AppLifecycleState.inactive caused by notification bar pull-downs)
       if (!BiometricAuthService.instance.isAuthenticating) {
         _pausedAt ??= DateTime.now();
       }
@@ -58,8 +60,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
       if (_pausedAt != null) {
         final elapsed = DateTime.now().difference(_pausedAt!);
         _pausedAt = null;
-        // Only lock if app was genuinely in background for over 800ms
-        if (elapsed.inMilliseconds >= 800) {
+        // Only lock if app was minimized/backgrounded for at least 2 seconds
+        if (elapsed.inSeconds >= 2) {
           if (AppPreferencesService.instance.isBiometricEnabled && !_isLocked) {
             setState(() {
               _isLocked = true;
