@@ -348,6 +348,8 @@ class MerchantCategorizer {
       if (_hasWord(fullMessage, 'salary') ||
           _hasWord(fullMessage, 'payroll') ||
           _hasWord(fullMessage, 'stipend') ||
+          _hasWord(fullMessage, 'remitter') ||
+          fullMessage.toLowerCase().contains('salary credit') ||
           fullMessage.toLowerCase().contains('neft cr')) {
         final merchant = rawMerchant.isNotEmpty ? cleanMerchantName(rawMerchant) : 'Salary';
         return CategorizationResult(
@@ -366,9 +368,16 @@ class MerchantCategorizer {
       }
       if (_hasWord(fullMessage, 'dividend') || _hasWord(fullMessage, 'interest')) {
         return CategorizationResult(
-          cleanMerchant: rawMerchant.isNotEmpty ? cleanMerchantName(rawMerchant) : 'Investment Return',
+          cleanMerchant: 'Bank Interest',
           category: 'Investment Return',
-          confidence: 0.90,
+          confidence: 0.95,
+        );
+      }
+      if (_hasWord(fullMessage, 'cash deposit') || fullMessage.toLowerCase().contains('cash deposit')) {
+        return CategorizationResult(
+          cleanMerchant: 'Cash Deposit',
+          category: 'Other Income',
+          confidence: 0.95,
         );
       }
       if (_hasWord(fullMessage, 'contribution') ||
@@ -378,6 +387,44 @@ class MerchantCategorizer {
         return CategorizationResult(
           cleanMerchant: 'EPFO Contribution',
           category: 'Investments',
+          confidence: 0.95,
+        );
+      }
+    } else {
+      // Expense checks for specialized categories
+      final lowerMsg = fullMessage.toLowerCase();
+      if (lowerMsg.contains('cash withdrawal') || lowerMsg.contains('withdrawn from atm') || lowerMsg.contains('atm wdl')) {
+        return CategorizationResult(
+          cleanMerchant: 'ATM Cash Withdrawal',
+          category: 'Other Expense',
+          confidence: 0.95,
+        );
+      }
+      if (lowerMsg.contains('emi of') || lowerMsg.contains('personal loan') || lowerMsg.contains('loan a/c')) {
+        return CategorizationResult(
+          cleanMerchant: 'Personal Loan EMI',
+          category: 'Financial Services',
+          confidence: 0.95,
+        );
+      }
+      if (lowerMsg.contains('towards credit card') || lowerMsg.contains('card bill') || lowerMsg.contains('outstanding payment')) {
+        return CategorizationResult(
+          cleanMerchant: 'Credit Card Bill Payment',
+          category: 'Bills & Utilities',
+          confidence: 0.95,
+        );
+      }
+      if (lowerMsg.contains('wallet recharge') || lowerMsg.contains('paytm wallet')) {
+        return CategorizationResult(
+          cleanMerchant: 'Wallet Recharge',
+          category: 'Financial Services',
+          confidence: 0.95,
+        );
+      }
+      if (lowerMsg.contains('electricity bill') || lowerMsg.contains('biller: kseb') || lowerMsg.contains('broadband bill')) {
+        return CategorizationResult(
+          cleanMerchant: rawMerchant.isNotEmpty ? cleanMerchantName(rawMerchant) : 'Utility Bill',
+          category: 'Bills & Utilities',
           confidence: 0.95,
         );
       }

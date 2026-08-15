@@ -8,7 +8,7 @@ class FinancialRegexPatterns {
   // Regex to reject promotional, loan offers, credit line ads, cashback offers, and marketing spam
   static final RegExp promotionalFilterRegex = RegExp(
     r'\b(?:'
-    r'pre[\s\-]?approved|pre[\s\-]?qualified|instant\s*loan|personal\s*loan|home\s*loan|business\s*loan|gold\s*loan|'
+    r'pre[\s\-]?approved|pre[\s\-]?qualified|instant\s*loan|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|'
     r'loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|'
     r'congratulations|good\s*news|hurry|limited\s*(?:period\s*)?offer|offer\s*valid|'
     r'win\s*(?:upto|up\s*to)|chance\s*to\s*win|lucky\s*draw|coupon\s*code|voucher|'
@@ -19,6 +19,12 @@ class FinancialRegexPatterns {
     r'is\s*due\s*on|due\s*date\s*is|payment\s*is\s*due|minimum\s*(?:amount\s*)?due|pay\s*before|'
     r'get\s*(?:rs\.?|inr|₹)\s*[\d,]+\s*off|save\s*(?:rs\.?|inr|₹)'
     r')\b',
+    caseSensitive: false,
+  );
+
+  // Regex to reject failed or pending transactions (incomplete state)
+  static final RegExp failedOrPendingFilterRegex = RegExp(
+    r'\b(?:failed|declined|unsuccessful|transaction\s*failed|payment\s*failed|is\s*pending|payment\s*is\s*pending|payment\s*pending|txn\s*failed)\b',
     caseSensitive: false,
   );
 
@@ -43,13 +49,13 @@ class FinancialRegexPatterns {
 
   // Explicit Debit keywords (past completed transaction)
   static final RegExp debitKeywordsRegex = RegExp(
-    r'\b(?:debited|debit|spent|paid|withdrawn|transferred|sent|purchase|charged|deducted)\b',
+    r'\b(?:debited|debit|spent|paid|withdrawn|withdrawal|transferred|sent|purchase|charged|deducted|emi|was\s*used\s*for)\b',
     caseSensitive: false,
   );
 
   // Explicit Credit keywords (past completed transaction)
   static final RegExp creditKeywordsRegex = RegExp(
-    r'\b(?:credited|deposited|received|refunded|refund|reversed|salary)\b',
+    r'\b(?:credited|deposited|deposit|received|refunded|refund|reversed|salary|contribution|interest)\b',
     caseSensitive: false,
   );
 

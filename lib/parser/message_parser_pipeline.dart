@@ -42,6 +42,13 @@ class MessageParserPipeline {
       return false;
     }
 
+    // Filter out failed or pending transactions (unless it is an explicit completed reversal/refund)
+    final lower = trimmed.toLowerCase();
+    final isExplicitReversal = RegExp(r'\b(?:has been reversed|is reversed|reversed to|refund credited|reversal of)\b', caseSensitive: false).hasMatch(trimmed);
+    if (FinancialRegexPatterns.failedOrPendingFilterRegex.hasMatch(trimmed) && !isExplicitReversal) {
+      return false;
+    }
+
     // Filter out promotional, loan marketing, and spam ads
     if (FinancialRegexPatterns.promotionalFilterRegex.hasMatch(trimmed)) {
       return false;
@@ -62,7 +69,7 @@ class MessageParserPipeline {
     if (!hasAmount) return false;
 
     // Additional check: If message contains promotional URLs and lacks any bank or account/card reference, reject
-    final hasUrl = trimmed.toLowerCase().contains('http://') || trimmed.toLowerCase().contains('https://');
+    final hasUrl = lower.contains('http://') || lower.contains('https://');
     final hasAcc = FinancialRegexPatterns.accountRegex.hasMatch(trimmed);
     final hasBank = FinancialRegexPatterns.bankNameRegex.hasMatch(trimmed);
     final hasRef = FinancialRegexPatterns.refIdRegex.hasMatch(trimmed);
@@ -150,8 +157,24 @@ class MessageParserPipeline {
 
     TransactionType type = TransactionType.debit;
     final lower = cleanText.toLowerCase();
-    if (hasCredit && (!hasDebit || lower.contains('refund') || lower.contains('salary') || lower.contains('received') || lower.contains('credited'))) {
-      type = TransactionType.credit;
+
+    // Check if bill payment from user card/account (e.g. "Payment of Rs. X received from SBI Debit Card XX1234 for your broadband bill")
+    final isBillPaymentFromUser = RegExp(r'received\s+from\s+(?:(?:your|the|sbi|hdfc|icici|axis|kotak)\s+)?(?:debit\s*card|credit\s*card|a/c|account)', caseSensitive: false).hasMatch(cleanText);
+
+    if (hasCredit && !isBillPaymentFromUser) {
+      if (!hasDebit ||
+          lower.contains('refund') ||
+          lower.contains('salary') ||
+          lower.contains('reversed') ||
+          lower.contains('reversal') ||
+          lower.contains('cash deposit') ||
+          lower.contains('deposit of') ||
+          lower.contains('interest') ||
+          lower.contains('credited to') ||
+          lower.contains('is credited') ||
+          lower.contains('credited with')) {
+        type = TransactionType.credit;
+      }
     }
 
     // 3. Extract Account / Card / Bank reference
@@ -170,14 +193,14 @@ class MessageParserPipeline {
       accountRef = '$bankName Bank';
     }
 
-    // 4. Extract Payment Mode with strict word boundaries
+    // 4. Extract Payment Mode with strict priority (ATM/Cash first, then NetBanking, Card, UPI)
     PaymentMode paymentMode = PaymentMode.upi;
-    if (RegExp(r'\b(?:credit\s*card|debit\s*card|card|pos\s*machine|pos\s*txn|\bpos\b)', caseSensitive: false).hasMatch(cleanText)) {
-      paymentMode = PaymentMode.card;
+    if (RegExp(r'\b(?:atm|cash\s*withdrawal|cash\s*deposit|cash|atm\s*wdl|atm\s*card)\b', caseSensitive: false).hasMatch(cleanText)) {
+      paymentMode = PaymentMode.cash;
     } else if (RegExp(r'\b(?:neft|imps|rtgs|netbanking|net\s*banking|wire\s*transfer|bank\s*transfer)\b', caseSensitive: false).hasMatch(cleanText)) {
       paymentMode = PaymentMode.netBanking;
-    } else if (RegExp(r'\b(?:atm|cash\s*withdrawal|cash\s*deposit|cash)\b', caseSensitive: false).hasMatch(cleanText)) {
-      paymentMode = PaymentMode.cash;
+    } else if (RegExp(r'\b(?:credit\s*card|debit\s*card|card|pos\s*machine|pos\s*txn|\bpos\b)', caseSensitive: false).hasMatch(cleanText)) {
+      paymentMode = PaymentMode.card;
     } else if (RegExp(r'\b(?:upi|vpa|scan\s*&\s*pay|gpay|phonepe|paytm)\b', caseSensitive: false).hasMatch(cleanText)) {
       paymentMode = PaymentMode.upi;
     }
