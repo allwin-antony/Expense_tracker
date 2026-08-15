@@ -28,6 +28,22 @@ class FinancialRegexPatterns {
     caseSensitive: false,
   );
 
+  // Regex to reject spam scams, phishing baiting, and security threats (KYC, fake refunds, lottery, job scams)
+  static final RegExp scamFilterRegex = RegExp(
+    r'\b(?:'
+    r'kyc\s*verification|update\s*kyc|yono\s*(?:account)?|account\s*(?:will\s*be\s*)?blocked|account\s*(?:will\s*be\s*)?suspended|'
+    r'confirm\s*bank\s*details|verify\s*your\s*bank\s*account|card\s*is\s*blocked\b.*\bcall|call\s*customer\s*care|'
+    r'lottery\b|scratch\s*card\s*cashback|won\s*(?:rs|₹|\$|£|€)|claim\s*your\s*(?:prize|reward|amount)|'
+    r'registration\s*fee|processing\s*fee|tax\s*fee|activation\s*fee|clearance\s*fee|'
+    r'to\s*release\s*funds|to\s*receive\s*money|approve\s*the\s*transfer|'
+    r'enter\s*(?:your\s*)?upi\s*pin|upi\s*pin\s*to|'
+    r'work\s*from\s*home|work\s*part[- ]time|earn\s*(?:rs|₹|\$|£|€)\s*\d+.*\b(?:daily|day|month)|'
+    r'download\s*(?:the\s*)?attached\s*apk|statement\.pdf\.exe|statement\.apk|'
+    r'whatsapp\s*support\b|whatsapp\s*to\s*start'
+    r')\b',
+    caseSensitive: false,
+  );
+
   // Rejects messages that are ONLY checking balance without any transaction keywords
   static final RegExp balanceOnlyQueryRegex = RegExp(
     r'\b(?:available\s*balance|avl\s*bal|account\s*balance)\b',
@@ -35,27 +51,27 @@ class FinancialRegexPatterns {
   );
 
   // Currency & Amount extraction
-  // Handles: ₹450, Rs. 1,450.50, INR 2500, Rs 500.00, Rs.450.00, etc.
+  // Handles: ₹450, Rs. 1,450.50, INR 2500, USD 15.99, $45.20, £14.50, etc.
   static final RegExp amountRegex = RegExp(
-    r'(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)',
+    r'(?:INR|Rs\.?|₹|USD|GBP|EUR|\$|£|€)\s*([\d,]+(?:\.\d{1,2})?)',
     caseSensitive: false,
   );
 
-  // Alternate Amount suffix: 450.00 INR, 500 Rs
+  // Alternate Amount suffix: 450.00 INR, 500 Rs, 15 USD
   static final RegExp amountSuffixRegex = RegExp(
-    r'([\d,]+(?:\.\d{1,2})?)\s*(?:INR|Rs\.?|₹)',
+    r'([\d,]+(?:\.\d{1,2})?)\s*(?:INR|Rs\.?|₹|USD|GBP|EUR|\$|£|€)',
     caseSensitive: false,
   );
 
   // Explicit Debit keywords (past completed transaction)
   static final RegExp debitKeywordsRegex = RegExp(
-    r'\b(?:debited|debit|spent|paid|withdrawn|withdrawal|transferred|sent|purchase|charged|deducted|emi|was\s*used\s*for)\b',
+    r'\b(?:debited|debit|spent|paid|withdrawn|withdrawal|transferred|sent|purchase|charged|deducted|emi|was\s*used\s*for|using\s*your|used\s*at|processed\s*from|sip|installment|made\s*from|payment\s*of|transaction\s*of)\b',
     caseSensitive: false,
   );
 
   // Explicit Credit keywords (past completed transaction)
   static final RegExp creditKeywordsRegex = RegExp(
-    r'\b(?:credited|deposited|deposit|received|refunded|refund|reversed|salary|contribution|interest)\b',
+    r'\b(?:credited|deposited|deposit|received|refunded|refund|reversed|salary|contribution|interest|dividend|disbursed|posted)\b',
     caseSensitive: false,
   );
 

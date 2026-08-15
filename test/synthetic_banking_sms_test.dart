@@ -336,5 +336,131 @@ void main() {
         expect(res.errorMessage, contains('personal phone number'));
       }
     });
+
+    group('89 Additional Phishing, Scam, and Real Transaction Validation Cases', () {
+      final userCases = [
+        // --- Unstructured Valid Transactions ---
+        _TestCase('Val_1', true, 'Rs.500.00 debited from a/c **1234 on 15-08-26 to VPA merchant@ybl. UPI Ref 123456789012. Not you? Call 1800-111-222.', expectedAmount: 500.0, expectedType: TransactionType.debit),
+        _TestCase('Val_2', true, 'Sent Rs. 150.00 from HDFC Bank Acct 9999 to Rahul. UPI Ref 654321. Bal: Rs. 10,500.25.', expectedAmount: 150.0, expectedType: TransactionType.debit),
+        _TestCase('Val_3', true, 'Alert: INR 2,050.00 deducted from A/C XXXXXX5555 on 16/08/26 14:20 via UPI. Payee: Swiggy. Bal: INR 12,000.', expectedAmount: 2050.0, expectedType: TransactionType.debit),
+        _TestCase('Val_4', true, 'Dear Customer, Acct XX5678 is credited with INR 1,500.00 on 14-Aug-26 from UPI/user@okaxis. Ref 987654321.', expectedAmount: 1500.0, expectedType: TransactionType.credit),
+        _TestCase('Val_5', true, 'You have received Rs. 850.00 from Amit Kumar on your ICICI Bank A/c ending 1122 via UPI. Available balance: Rs 4,500.00.', expectedAmount: 850.0, expectedType: TransactionType.credit),
+        _TestCase('Val_6', true, "Alert: You've spent INR 2,450.50 on your SBI Credit Card ending 4455 at AMAZON INDIA on 12-08-26. Avail. Lmt: INR 45,000.", expectedAmount: 2450.50, expectedType: TransactionType.debit),
+        _TestCase('Val_7', true, 'Transaction of USD 15.99 on your Axis Bank Credit Card xx1122 at NETFLIX COM on 15/08/2026. Available limit: Rs 150000.', expectedAmount: 15.99, expectedType: TransactionType.debit),
+        _TestCase('Val_8', true, 'Thank you for using your Citi Card 8899 for Rs. 540 at STARBUCKS on 14AUG26. Limit available Rs. 89,000.', expectedAmount: 540.0, expectedType: TransactionType.debit),
+        _TestCase('Val_9', true, 'Chase Bank: \$45.20 was charged to your Visa ending 1234 at TARGET on 08/15. Reply STOP to cancel alerts.', expectedAmount: 45.20, expectedType: TransactionType.debit),
+        _TestCase('Val_10', true, '£14.50 has been debited from your Monzo account ending 0987. Retailer: TESCO. Date: 16 Aug.', expectedAmount: 14.50, expectedType: TransactionType.debit),
+        _TestCase('Val_11', true, 'Your A/C XXXXXX8888 has been credited with Rs 85,000.00 on 31/07/26 by SALARY CORP. Info: NEFT/ABC12345. Bal: Rs 92,000.00.', expectedAmount: 85000.0, expectedType: TransactionType.credit),
+        _TestCase('Val_12', true, 'IMPS P2A fund transfer of Rs 5,000.00 credited to your A/c XX2222 on 15-08-26. Ref no 55556666. Avail Bal Rs 15,200.00.', expectedAmount: 5000.0, expectedType: TransactionType.credit),
+        _TestCase('Val_13', true, 'Dear Customer, Rs. 10,000.00 credited to your account **9988 on 15/08/2026 via RTGS from MR SHARMA. Available Balance is INR 50,000.', expectedAmount: 10000.0, expectedType: TransactionType.credit),
+        _TestCase('Val_14', true, 'Bank of America alert: A direct deposit of \$3,200.00 was posted to checking account 9876 on Aug 14.', expectedAmount: 3200.0, expectedType: TransactionType.credit),
+        _TestCase('Val_15', true, 'Cash withdrawal of Rs. 2,000.00 made from A/c No. XXXX1111 on 15-08-26 at SBI ATM. Available Bal: Rs. 15,340.50.', expectedAmount: 2000.0, expectedType: TransactionType.debit),
+        _TestCase('Val_16', true, 'Alert! Rs. 500.00 withdrawn at HDFC ATM from Acct ending 7777 on 16/08/26 10:30AM. Clear Bal: Rs 8,000.00.', expectedAmount: 500.0, expectedType: TransactionType.debit),
+        _TestCase('Val_17', true, 'Rs. 1,499.00 has been debited from your A/c XXXXX5555 on 10-08-26 towards JIO FIBER auto-pay. Bal Rs 14,000.', expectedAmount: 1499.0, expectedType: TransactionType.debit),
+        _TestCase('Val_18', true, 'Alert: EMI of Rs. 15,500.00 for your Home Loan XX1122 has been debited from Savings A/c XX4455 on 05-Aug-2026.', expectedAmount: 15500.0, expectedType: TransactionType.debit),
+        _TestCase('Val_19', true, 'Your SIP of Rs 3,000.00 in MUTUAL FUND is successfully processed from A/c XX7777 on 12-08-26. Bal: Rs 42,100.', expectedAmount: 3000.0, expectedType: TransactionType.debit),
+        _TestCase('Val_20', true, 'Refund of Rs. 499.00 processed for your transaction at SWIGGY. Amount credited to A/c XX5566 on 16/08/26. Bal: Rs 3,499.00.', expectedAmount: 499.0, expectedType: TransactionType.credit),
+        _TestCase('Val_21', true, 'INR 1,200.00 reversed to your Kotak CC 11**44 on 14-Aug-26 for txn originally billed at ZOMATO.', expectedAmount: 1200.0, expectedType: TransactionType.credit),
+        _TestCase('Val_22', true, 'Dear Customer, Annual maintenance charge of Rs 295.00 has been deducted from A/c XX1234 on 15/08/26. Available balance is Rs 9,500.25.', expectedAmount: 295.0, expectedType: TransactionType.debit),
+
+        // --- Unstructured Fake/Scams ---
+        _TestCase('Fake_1', false, 'Dear Customer, your HDFC bank account will be blocked today due to pending PAN Card update. Click here to update now: http://bit.ly/fake-update-link'),
+        _TestCase('Fake_2', false, 'SBI Alert: Your YONO account is suspended. Please complete your KYC verification immediately to avoid account closure. Link: https://sbi-kyc-verify-fake.com'),
+        _TestCase('Fake_3', false, 'Dear User, your Bank A/c has been blocked. Please update your Aadhar and PAN card immediately. Visit: http://tinyurl.com/bank-kyc-alert'),
+        _TestCase('Fake_4', false, 'Dear User, Rs. 25,000.00 has been credited to your bank account. Claim your amount here: http://claim-your-reward.com'),
+        _TestCase('Fake_5', false, 'Congratulations! You have received a scratch card cashback of Rs 1,999 from Google Pay. Click here to receive the money directly in your UPI a/c: http://gpay-cashback-scam.in'),
+        _TestCase('Fake_6', false, 'Your mobile number has won Rs 50,00,000 in the KBC Jio lottery. Please contact the manager on WhatsApp at +919876543210 to claim your prize.'),
+        _TestCase('Fake_7', false, 'Dear Taxpayer, your Income Tax refund of Rs 14,500 for the current financial year has been approved. Please verify your bank account details here to process the refund: http://incometax-refund-gov.com'),
+        _TestCase('Fake_8', false, 'ITD Alert: A refund of Rs. 8,450 has been generated for PAN ABCDE1234F. Click below to approve the transfer to your account.'),
+        _TestCase('Fake_9', false, "Dear customer, your electricity power will be disconnected tonight at 9:30 PM from the electricity office because your previous month's bill was not updated. Please contact our officer at 9876543210."),
+        _TestCase('Fake_10', false, 'Jio Alert: Your SIM card will be deactivated in 24 hours. Recharge immediately to keep your number active. Click here: http://jio-recharge-fake.com'),
+        _TestCase('Fake_11', false, 'Work from home and earn Rs 3000 to 5000 daily by just liking YouTube videos. Reply via WhatsApp to start: http://wa.me/919876543210'),
+        _TestCase('Fake_12', false, 'Amazon is hiring! Work part-time and earn up to Rs 8,000/day. No experience needed. Contact HR: +919000000000.'),
+
+        // --- Structured Valid (1 to 30) ---
+        _TestCase('Str_Val_1', true, 'Your TestBank Savings A/c XX1234 is debited with Rs. 1,250.00 on 16-08-2026 at AMAZON PAY. Avl. Bal: Rs. 23,456.78', expectedAmount: 1250.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_2', true, 'Dear Customer, Rs. 2,500.00 credited to A/c 9876****** on 16-08-26 towards salary from Demo Pvt Ltd. Net balance Rs. 45,000.00', expectedAmount: 2500.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_3', true, 'UPI/DR/612345012345: Rs 500/- debited from your DemoPay account on 16/08/2026 to MERCHANT KIRANA. UPI Ref: 612345012345', expectedAmount: 500.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_4', true, 'UPI/CR/612345012346: INR 1,500.00 credited to your account from RAMESH KUMAR. Available balance ₹12,300.50', expectedAmount: 1500.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_5', true, 'TestBank: ATM cash withdrawal of ₹10,000 from A/c ****4321 on 16-08-2026. Available Balance: ₹50,000', expectedAmount: 10000.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_6', true, 'Your credit card ending 5678 was used for INR 3,499.00 at SWIGGY on 16 Aug 2026. This is a debit transaction.', expectedAmount: 3499.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_7', true, 'Refund of Rs. 750.50 credited to your account 1234XXXXXX from FLIPKART on 16-08-2026. Total balance Rs. 10,250.25', expectedAmount: 750.50, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_8', true, 'EMI of Rs 4,999.00 debited from A/c 9999 for LOAN ABC on 16-08-2026. Available balance Rs 25,000.00', expectedAmount: 4999.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_9', true, 'Dear User, ₹99.00 was deducted from your wallet for mobile recharge. Transaction ID: TRX123456.', expectedAmount: 99.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_10', true, 'Salary credit: ₹1,00,000.00 to A/c 5555 on 16-08-2026 from SAMPLE TECHNOLOGIES. Balance: ₹2,00,000.00', expectedAmount: 100000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_11', true, 'Auto debit: Rs. 1,199.00 paid to NETFLIX_SUBSCRIPTION from A/c XX8888 on 16-08-26. Avl bal: Rs. 10,000.00', expectedAmount: 1199.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_12', true, 'Interest credited Rs. 2,345.67 to your Savings A/c 1111 for Q2 FY2026. Balance: Rs. 1,23,456.78', expectedAmount: 2345.67, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_13', true, 'POS purchase of ₹780.00 at RELIANCE SMART with A/c ***2222 on 16-08-2026. Available balance ₹4,321.00', expectedAmount: 780.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_14', true, 'Your A/c 7777 received ₹5,000 via IMPS from PRIYA SHARMA. Ref No. 612345678901. Balance ₹15,000', expectedAmount: 5000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_15', true, 'Insurance premium of Rs. 2,500.00 debited from account 4444 on 16/08/2026. Policy: DEMO123.', expectedAmount: 2500.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_16', true, 'Dividend of INR 1,000.00 credited to A/c 3333 on 16-08-2026 from DEMOSTOCK. Ledger balance INR 20,000.00', expectedAmount: 1000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_17', true, 'Fuel purchase: Rs. 2,000.00 debited at HP PUMP with A/c XX6666, Date: 16-08-2026. Avl Bal: Rs. 30,000.00', expectedAmount: 2000.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_18', true, 'Cashback of Rs 50 credited to your TestBank account for UPI txn 612345012347. Balance Rs 1,250', expectedAmount: 50.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_19', true, 'Loan disbursed: ₹50,000.00 credited to your Savings A/c 8888 on 16-08-2026 by Demo FinApp.', expectedAmount: 50000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_20', true, 'Electricity bill payment of ₹1,234.00 made from A/c 2222 to BSES. Txn ID UPI612345012348. Bal ₹9,876', expectedAmount: 1234.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_21', true, 'rs.1000.00 debited from your account 1234 on 16-08-2026 to MERCHANT XYZ. Updated balance Rs.4000.00', expectedAmount: 1000.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_22', true, 'INR 100000 credited to A/c 4321 via NEFT CR from ABC ORG on 16082026. Avail bal INR 500000', expectedAmount: 100000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_23', true, 'Dear Cust, ₹250.75 has been debited for GST payment. A/c ****9999. Updated balance: ₹7,500.25', expectedAmount: 250.75, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_24', true, 'Your Demat account was credited with dividend ₹320.00. Value date 16-08-2026. Ignore if not due.', expectedAmount: 320.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_25', true, 'SIP installment of Rs. 5,000.00 debited from A/c 5555 towards MUTUAL FUND on 16 Aug 2026. Balance Rs. 45,000.00', expectedAmount: 5000.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_26', true, 'Maturity amount ₹1,50,000.00 credited to your fixed deposit linked A/c 1212 on 16-08-2026.', expectedAmount: 150000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_27', true, 'Rent received: ₹18,000 credited to A/c 3434 on 16-08-2026 from TENANT. Balance ₹88,000', expectedAmount: 18000.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_28', true, 'Your card ending 8765 was charged ₹499.00 for subscription renewal. This will appear as an expense.', expectedAmount: 499.0, expectedType: TransactionType.debit),
+        _TestCase('Str_Val_29', true, 'Wallet refund: ₹300 credited to your PayWallet. Transaction reference: REF98765. Balance ₹450.00', expectedAmount: 300.0, expectedType: TransactionType.credit),
+        _TestCase('Str_Val_30', true, 'UPI expense: ₹1,00,000.00 paid to MERCHANT LIMITED via UPI. Ref: 612345012349. A/c XX9876. Balance ₹2,00,000.00', expectedAmount: 100000.0, expectedType: TransactionType.debit),
+
+        // --- Structured Scam/Phishing (1 to 25) ---
+        _TestCase('Str_Scam_1', false, 'SBI YONO: Your A/c will be blocked today. Update KYC immediately to continue services. Click: http://sbi-kyc-update.in'),
+        _TestCase('Str_Scam_2', false, 'Dear Customer, Your Mobile No. has been selected for KBC Lottery 2026 of ₹25,00,000. To claim your prize pay ₹1500 registration fee to UPI: kbc-prime@okaxis'),
+        _TestCase('Str_Scam_3', false, 'URGENT: Your Electricity Bill is pending and power will be disconnected tonight. Please pay immediately or update PAN: http://bijli-portal.in'),
+        _TestCase('Str_Scam_4', false, "You have received ₹4,999 from 'CASHBACK_WIN'. To accept into your bank account, click this link: http://upi-accept.in or scan QR."),
+        _TestCase('Str_Scam_5', false, 'Work from Home! Earn Rs 3000 to Rs 8000 daily just by liking YouTube videos and rating apps. WhatsApp: 70XXXXXX45'),
+        _TestCase('Str_Scam_6', false, 'DTDC: Your parcel from the UK is held at Mumbai Customs. Pay ₹1500 clearance fee to avoid police action. Link: http://customs-clearance.co'),
+        _TestCase('Str_Scam_7', false, 'TestBank: A/c XX1234 debited for Rs 15,000. If not done by you, your card is blocked. Call Customer Care immediately: +91-98XXXXXX12'),
+        _TestCase('Str_Scam_8', false, 'Congrats! Pre-approved personal loan of Rs 5,00,000. 0% Interest. Disburse to your account now: http://instant-loan-approval.app'),
+        _TestCase('Str_Scam_9', false, 'RBI ALERT: Your bank account is not linked to Aadhar. It will be frozen in 24 hours. Verify here: http://rbi-gov-in-verify.com'),
+        _TestCase('Str_Scam_10', false, 'UPI: ₹10,000 credited to your account. To process withdrawal and accept money, enter your UPI PIN now.'),
+        _TestCase('Str_Scam_11', false, 'I have recorded your private videos. Pay Rs 20,000 to UPI ID: blackmailer@oksbi or I will send them to your family contacts.'),
+        _TestCase('Str_Scam_12', false, 'HDFC Bank: You are eligible for a Lifetime Free Credit Card upgrade. Pay Rs 999 refundable security deposit: http://hdfc-upgrade.cc'),
+        _TestCase('Str_Scam_13', false, 'LIC Policy: Your life insurance policy has matured. Claim Rs 10,00,000. Pay Rs 500 processing fee to UPI ID: lic-claim@okicici'),
+        _TestCase('Str_Scam_14', false, 'ALERT: An attempt was made to login to your NetBanking. To block this, click: http://secure-bank-login.net and enter the OTP sent to you.'),
+        _TestCase('Str_Scam_15', false, 'Your FD of Rs 50,000 has matured. Renew with 12% interest. Pay Rs 200 registration fee to this UPI ID to get maturity amount.'),
+        _TestCase('Str_Scam_16', false, 'Rs 2,000 credited to your account. Download the attached APK (statement.pdf.exe) to view transaction details and statement.'),
+        _TestCase('Str_Scam_17', false, 'CIBIL ALERT: You are a willful defaulter. Police complaint filed. Pay Rs 15,000 settlement to UPI ID: legal-cell@okaxis to close case.'),
+        _TestCase('Str_Scam_18', false, 'PM Ujjwala Yojana: Gas subsidy of Rs 2400 pending. Provide bank details and Rs 10 activation fee here: http://govt-subsidy.in'),
+        _TestCase('Str_Scam_19', false, 'Income Tax Dept: Refund of Rs 14,500 is pending. Update your bank account to receive amount: http://incometax-refund-gov.com'),
+        _TestCase('Str_Scam_20', false, 'Urgent: PM Cares Fund / Temple Trust needs donation. Get 100% tax exemption. Donate minimum Rs 500 to UPI: pm-cares-donate@okhdfc'),
+        _TestCase('Str_Scam_21', false, 'Urgent requirement for data entry operators. Salary Rs 45,000/month. Registration fee Rs 500 required to start. Pay to UPI: hr-desk@okicici'),
+        _TestCase('Str_Scam_22', false, 'Your Paytm Soundbox subscription expires today. Renew for Rs 299 to keep receiving audio alerts: http://paytm-soundbox.in'),
+        _TestCase('Str_Scam_23', false, 'Flipkart: Refund of Rs 1,200 initiated to your account. To confirm bank details and receive money, call our WhatsApp Support: 88XXXXXX99'),
+        _TestCase('Str_Scam_24', false, 'EPFO: Your PF amount of Rs 2,50,000 is ready for withdrawal. Pay Rs 500 tax fee to UPI ID: epfo-tax-clearance@oksbi to release funds.'),
+        _TestCase('Str_Scam_25', false, 'PhonePe Alert: Your wallet has been hacked and Rs 5,000 transferred. Click here to freeze your account and reverse transaction: http://phonepe-secure.com'),
+      ];
+
+      for (final tc in userCases) {
+        test(tc.label, () {
+          final res = pipeline.parse(tc.sms, source: PaymentSource.sms);
+          if (tc.shouldPass) {
+            expect(res.isSuccess, isTrue, reason: 'Failed to parse: ${res.errorMessage}');
+            expect(res.payment?.amount, tc.expectedAmount);
+            if (tc.expectedType != null) {
+              expect(res.payment?.type, tc.expectedType);
+            }
+          } else {
+            expect(res.isSuccess, isFalse, reason: 'Expected to reject, but it was accepted with amount ${res.payment?.amount}');
+          }
+        });
+      }
+    });
   });
+}
+
+class _TestCase {
+  final String label;
+  final bool shouldPass;
+  final String sms;
+  final double? expectedAmount;
+  final TransactionType? expectedType;
+
+  _TestCase(this.label, this.shouldPass, this.sms, {this.expectedAmount, this.expectedType});
 }

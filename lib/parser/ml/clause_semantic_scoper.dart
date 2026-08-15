@@ -21,15 +21,15 @@ class ClauseSemanticScoper {
   static final ClauseSemanticScoper instance = ClauseSemanticScoper._();
   ClauseSemanticScoper._();
 
-  // Keywords that identify static balance statements
+  // Keywords that identify static balance or limit statements
   static final RegExp _balanceKeywordsRegex = RegExp(
-    r'\b(?:passbook\s*balance|available\s*balance|avl\s*bal|account\s*balance|total\s*balance|remaining\s*balance)\b',
+    r'\b(?:passbook\s*balance|available\s*balance|avl\s*bal|account\s*balance|total\s*balance|remaining\s*balance|ledger\s*balance|updated\s*balance|net\s*balance|clear\s*bal|available\s*limit|avail\s*limit|avail\s*lmt|limit\s*available|avail\.\s*lmt)\b',
     caseSensitive: false,
   );
 
   // Keywords that identify active transaction events (debit, credit, contribution, spent, paid, received)
   static final RegExp _transactionKeywordsRegex = RegExp(
-    r'\b(?:debited|debit|spent|paid|withdrawn|transferred|sent|charged|deducted|credited|deposited|received|refunded|refund|reversed|salary|contribution)\b',
+    r'\b(?:debited|debit|spent|paid|withdrawn|transferred|sent|charged|deducted|credited|deposited|received|refunded|refund|reversed|salary|contribution|dividend|disbursed|posted|using|used|processed|sip|installment|made\s*from|payment\s*of|transaction\s*of)\b',
     caseSensitive: false,
   );
 

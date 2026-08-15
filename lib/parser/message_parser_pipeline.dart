@@ -49,6 +49,11 @@ class MessageParserPipeline {
       return false;
     }
 
+    // Filter out scam baits, phishing links, fake lotteries, and utility disconnection alerts
+    if (FinancialRegexPatterns.scamFilterRegex.hasMatch(trimmed)) {
+      return false;
+    }
+
     // Filter out promotional, loan marketing, and spam ads
     if (FinancialRegexPatterns.promotionalFilterRegex.hasMatch(trimmed)) {
       return false;
