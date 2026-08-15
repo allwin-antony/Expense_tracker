@@ -4,20 +4,21 @@
 > 🚧 **Status: Under Active Development**  
 > This application is currently under active development. Features, model weights, and UI components are continuously being updated and refined.
 
-A modern, privacy-first, intelligent Android application for tracking personal finances. Featuring real-time automated SMS sync, **pure Dart on-device FastText machine learning classification**, smart merchant categorizer, interactive charts, and local SQLite data persistence.
+A modern, privacy-first, intelligent Android application for tracking personal finances tailored for Indian transactions & UPI parsing. Featuring real-time automated SMS sync, **pure Dart quantized on-device FastText machine learning classification**, custom user merchant auto-learning, merchant analytics, interactive charts, and local SQLite data persistence.
 
 ---
 
 ## ✨ Features
 
-- 🤖 **On-Device FastText ML Classifier**: High-speed (< 0.3ms latency) semantic SMS classification built natively in pure Dart. Automatically filters out promotional loan marketing, spam, and OTP security codes while isolating genuine financial transactions.
-- 📩 **Automated Financial SMS Parsing**: Supports Indian banking and UPI SMS formats (HDFC, SBI, ICICI, Axis, Paytm, PhonePe, Cred, etc.) via a robust multi-tier regex pipeline and AI authenticity validator.
-- 📊 **Interactive Analytics & Charts**: Powered by `fl_chart`. Visualizes spending trends, monthly budgets, and category-wise expense distributions with dynamic animations.
-- 🛍️ **Smart Merchant Categorization**: Intelligent rule-based and keyword mapping engine for instant categorization (Food & Dining, Shopping, Bills & Utilities, Transport, Entertainment, Investments, etc.).
-- 🔒 **100% Offline & Privacy-Centric**: No cloud server, zero remote APIs, and no native C++/Python dependencies. All SMS processing and model evaluation happens locally on your device.
+- 🤖 **Quantized On-Device FastText ML Classifier**: High-speed (< 0.3ms latency) semantic SMS classification built natively in pure Dart. Features uint8 Base64 quantization (**171.5 KB model size** — 83.5% size reduction). Automatically filters out promotional loan marketing, spam, and OTP security codes while isolating genuine financial transactions.
+- 🏦 **Comprehensive RBI Banks & NPCI Handles Dataset**: Trained with official lists of 712+ Indian Banks (Public, Private, Small Finance, Co-operative) and 92+ NPCI UPI/AutoPay handles (`@ybl`, `@okaxis`, `@oksbi`, `@okhdfcbank`, `@apl`, `@fkaxis`, `@jupiteraxis`, `@wasbi`, etc.).
+- 🛍️ **Custom User Merchant Rules (Dynamic Learning Engine)**: Remembers and auto-applies custom merchant categorizations (e.g. mapping local store *"Sharma Dhaba"* $\rightarrow$ *"Food & Dining"*) in local SQLite storage. User custom rules take 100% precedence in both manual entries and automated SMS syncs.
+- 📊 **Interactive Analytics & Merchant Rankings**: Powered by `fl_chart`. Toggle between **By Category** pie charts and **By Merchant** top spending rankings with Gold (🥇 #1), Silver (🥈 #2), and Bronze (🥉 #3) badges, order frequencies, and spending percentages.
+- 📅 **Redesigned Date Range Picker**: Styled time filter button with a sleek Bottom Sheet modal picker supporting All Time, This Month, Last Month, Last 30 Days, This Year, Selected Month, and Custom Ranges.
+- 📩 **Automated Financial SMS Parsing**: Multi-tier regex pipeline supporting Indian banking and UPI SMS formats (HDFC, SBI, ICICI, Axis, Paytm, PhonePe, Cred, etc.) with AI authenticity verification.
+- 🔒 **100% Offline & Privacy-Centric**: Zero cloud servers, zero remote APIs, and no native C++/Python binaries. All processing runs locally on device.
 - 💾 **Local SQLite Storage**: Fast, persistent storage utilizing `sqflite` for offline-first performance.
-- 🎨 **Modern Material Design**: Featuring responsive bottom sheets (`SmartParserSheet`, `CategoryPickerSheet`), shimmer loading effects, custom dialogs, and smooth micro-interactions.
-- 🔔 **Background & Manual SMS Sync**: Foreground sync service with explicit permission disclosure and user notifications.
+- 🎨 **Modern Material Design**: Glassmorphism UI, responsive bottom sheets, shimmer loading skeletons, custom dialogs, and smooth micro-interactions.
 
 ---
 
@@ -26,7 +27,7 @@ A modern, privacy-first, intelligent Android application for tracking personal f
 ```mermaid
 flowchart TD
     A[Incoming SMS / Inbox Sync] --> B[MessageParserPipeline]
-    B --> C[FastTextEngine - On-Device ML]
+    B --> C[FastTextEngine - Quantized On-Device ML]
     
     C -->|Classifies Category| D{Semantic Intent}
     D -->|Promotional Spam / OTP| E[Reject Message]
@@ -34,24 +35,29 @@ flowchart TD
     
     F --> G[FinancialRegexPatterns Extraction]
     G --> H[MerchantCategorizer Engine]
-    H --> I[(Local SQLite Database)]
+    H -->|Check SQLite User Rules| I{Custom Rule Found?}
+    I -->|Yes| J[Apply User Category - 100% Confidence]
+    I -->|No| K[Apply Builtin Dictionary & ML Heuristics]
     
-    I --> J[Home Dashboard & Analytics]
-    I --> K[Transaction History Screen]
-    I --> L[Statistics & Budgeting Charts]
+    J --> L[(Local SQLite Database)]
+    K --> L
+    
+    L --> M[Home Dashboard & Budgeting]
+    L --> N[Transaction History Screen & Date Filter]
+    L --> O[Statistics & Merchant Rankings]
 ```
 
 ---
 
 ## 🛠️ Technology Stack
 
-- **Framework**: [Flutter](file:///c:/Users/santo/OneDrive/Documents/Expense_tracker/pubspec.yaml) (SDK `^3.8.1`)
+- **Framework**: [Flutter](pubspec.yaml) (SDK `^3.8.1`)
 - **Language**: Dart
-- **Database**: `sqflite` (SQLite)
+- **Database**: `sqflite` (SQLite v5 schema with `custom_merchant_rules`)
 - **Charts & Visualizations**: `fl_chart`
 - **SMS Reading**: `flutter_sms_inbox` & `permission_handler`
 - **Notifications**: `flutter_local_notifications`
-- **Machine Learning**: Custom pure-Dart **FastText** implementation (Subword n-gram hashing + SGD trained embeddings)
+- **Machine Learning**: Custom pure-Dart **FastText** implementation (Subword n-gram hashing + SGD trained embeddings + uint8 Base64 quantization)
 
 ---
 
@@ -62,7 +68,8 @@ The project includes a pure Dart FastText model toolchain that runs without any 
 ### Model Specs
 - **Classes**: `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, `INFORMATIONAL`
 - **Feature Extraction**: 3-to-6 character subword n-grams with 32-bit FNV-1a hashing into 8,192 buckets.
-- **Model Footprint**: ~150 KB serialized JSON (`assets/models/financial_fasttext.json`).
+- **Quantization**: 8-bit unsigned integer Base64 quantization with scaling parameters (`embMin`, `embMax`).
+- **Model Size**: **`171.5 KB`** (reduced from `1.03 MB`).
 - **Inference Latency**: `< 0.3ms` per message.
 
 ### Training / Re-generating Model Weights
@@ -72,7 +79,7 @@ To retrain the ML classifier on updated synthetic banking templates:
 dart run tool/train_fasttext.dart
 ```
 
-This generates `assets/models/financial_fasttext.json` after running Stochastic Gradient Descent (SGD) training across 3,200+ labeled SMS templates.
+This generates `assets/models/financial_fasttext.json` after running Stochastic Gradient Descent (SGD) training across 3,200+ labeled SMS templates with automatic uint8 Base64 quantization export.
 
 ---
 
@@ -96,7 +103,7 @@ This generates `assets/models/financial_fasttext.json` after running Stochastic 
    flutter pub get
    ```
 
-3. **Train / verify ML model weights** *(Optional, pre-compiled asset included)*:
+3. **Train / verify ML model weights** *(Optional, pre-compiled quantized asset included)*:
    ```bash
    dart run tool/train_fasttext.dart
    ```
@@ -110,7 +117,7 @@ This generates `assets/models/financial_fasttext.json` after running Stochastic 
 
 ## 🧪 Testing
 
-Run the full automated unit test suite covering FastText inference, SMS parser pipelines, budget calculations, and date utilities:
+Run the full automated unit test suite covering FastText inference, SMS parser pipelines, custom merchant rules, merchant analytics, budget calculations, and date utilities:
 
 ```bash
 flutter test
@@ -118,7 +125,7 @@ flutter test
 
 Expected output:
 ```
-00:00 +48: All tests passed!
+00:01 +53: All tests passed!
 ```
 
 ---
@@ -128,7 +135,7 @@ Expected output:
 ```
 Expense_tracker/
 ├── assets/
-│   ├── models/            # FastText ML model weights (financial_fasttext.json)
+│   ├── models/            # Quantized FastText ML model weights (financial_fasttext.json)
 │   └── icons/             # Launcher and app icons
 ├── lib/
 │   ├── main.dart          # App entry point & service initialization
@@ -139,8 +146,8 @@ Expense_tracker/
 │   ├── services/          # SQLite Database, SMS Sync, and Notifications services
 │   └── widgets/           # Dialogs, bottom sheets, cards, shimmer loaders
 ├── tool/
-│   └── train_fasttext.dart # FastText dataset generator & SGD trainer script
-└── test/                  # Comprehensive unit tests for ML & parser engine
+│   └── train_fasttext.dart # FastText dataset generator & SGD trainer script with uint8 quantization
+└── test/                  # Comprehensive unit tests (FastText, Custom Rules, Merchant Analytics)
 ```
 
 ---
@@ -148,4 +155,3 @@ Expense_tracker/
 ## 📄 License
 
 This project is open-source and available under the MIT License.
-
