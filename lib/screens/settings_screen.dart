@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../services/app_preferences_service.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/database_service.dart';
@@ -12,25 +13,42 @@ class SettingsScreen extends StatefulWidget {
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObserver {
   bool _isBiometricSupported = false;
   int _customRulesCount = 0;
   bool _isLoading = true;
+  bool _hasSystemNotificationPermission = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadSettingsData();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadSettingsData();
+    }
   }
 
   Future<void> _loadSettingsData() async {
     final isAvailable = await BiometricAuthService.instance.isBiometricAvailable();
     final rules = await DatabaseService.instance.getAllCustomMerchantRules();
+    final systemNotifGranted = await Permission.notification.isGranted;
 
     if (mounted) {
       setState(() {
         _isBiometricSupported = isAvailable;
         _customRulesCount = rules.length;
+        _hasSystemNotificationPermission = systemNotifGranted;
         _isLoading = false;
       });
     }
@@ -73,8 +91,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _onToggleNotifications(bool value) async {
     HapticFeedback.selectionClick();
-    await AppPreferencesService.instance.setNotificationsEnabled(value);
-    if (mounted) setState(() {});
+    if (value) {
+      final status = await Permission.notification.status;
+      if (status.isPermanentlyDenied) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Notifications Disabled'),
+              content: const Text(
+                'Notification permission has been permanently denied. Please enable it in system settings to receive alerts.',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    openAppSettings();
+                  },
+                  child: const Text('Open Settings'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      final result = await Permission.notification.request();
+      if (result.isGranted) {
+        await AppPreferencesService.instance.setNotificationsEnabled(true);
+        setState(() {
+          _hasSystemNotificationPermission = true;
+        });
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notification permission denied.'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } else {
+      await AppPreferencesService.instance.setNotificationsEnabled(false);
+      setState(() {});
+    }
   }
 
   Future<void> _onToggleSilentNotifications(bool value) async {
@@ -169,30 +235,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                       // Transaction Notifications
                       SwitchListTile(
-                        value: AppPreferencesService.instance.areNotificationsEnabled,
+                        value: AppPreferencesService.instance.areNotificationsEnabled && _hasSystemNotificationPermission,
                         onChanged: _onToggleNotifications,
                         secondary: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF06B6D4).withValues(alpha: 0.12),
+                            color: (_hasSystemNotificationPermission ? const Color(0xFF06B6D4) : Colors.red).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Icon(Icons.notifications_active_rounded, color: Color(0xFF06B6D4), size: 22),
+                          child: Icon(
+                            _hasSystemNotificationPermission
+                                ? Icons.notifications_active_rounded
+                                : Icons.notifications_off_rounded,
+                            color: _hasSystemNotificationPermission ? const Color(0xFF06B6D4) : Colors.red,
+                            size: 22,
+                          ),
                         ),
                         title: const Text(
                           'Transaction Alerts',
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5),
                         ),
                         subtitle: Text(
-                          'Show alerts when SMS transactions are captured',
+                          _hasSystemNotificationPermission
+                              ? 'Show alerts when SMS transactions are captured'
+                              : 'Disabled: OS notification permission is missing',
                           style: TextStyle(
                             fontSize: 11.5,
-                            color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                            color: _hasSystemNotificationPermission
+                                ? (isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B))
+                                : Colors.red,
                           ),
                         ),
                       ),
 
-                      if (AppPreferencesService.instance.areNotificationsEnabled) ...[
+                      if (AppPreferencesService.instance.areNotificationsEnabled && _hasSystemNotificationPermission) ...[
                         Divider(height: 1, color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)),
                         SwitchListTile(
                           value: AppPreferencesService.instance.isSilentNotificationEnabled,
