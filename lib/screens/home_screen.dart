@@ -12,7 +12,6 @@ import '../widgets/edit_payment_dialog.dart';
 import '../widgets/sms_sync_dialog.dart';
 import '../widgets/sms_permission_disclosure_dialog.dart';
 import '../widgets/shimmer_loading.dart';
-import '../widgets/smart_parser_sheet.dart';
 import '../services/notification_service.dart';
 import 'settings_screen.dart';
 
@@ -442,6 +441,9 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           duration: const Duration(seconds: 2),
         ),
       );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -846,91 +848,6 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                       Icons.chevron_right_rounded,
                                       size: 18,
                                       color: theme.colorScheme.primary,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          // AI Smart Parser Tester Tile (Phase 2 FastText Tester)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16),
-                            child: InkWell(
-                              onTap: _openSmartParser,
-                              borderRadius: BorderRadius.circular(16),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                decoration: BoxDecoration(
-                                  gradient: LinearGradient(
-                                    colors: isDark
-                                        ? [const Color(0xFF1E1B4B), const Color(0xFF312E81)]
-                                        : [const Color(0xFFEEF2FF), const Color(0xFFE0E7FF)],
-                                  ),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(
-                                    color: const Color(0xFF6366F1).withValues(alpha: isDark ? 0.4 : 0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(9),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-                                        ),
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: const Icon(
-                                        Icons.auto_awesome_rounded,
-                                        color: Colors.white,
-                                        size: 18,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Row(
-                                            children: [
-                                              Text(
-                                                'Test FastText AI Parser',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 13.5,
-                                                  color: Color(0xFF4F46E5),
-                                                ),
-                                              ),
-                                              SizedBox(width: 6),
-                                              Text(
-                                                '• Phase 2',
-                                                style: TextStyle(
-                                                  fontSize: 10.5,
-                                                  fontWeight: FontWeight.w600,
-                                                  color: Color(0xFF818CF8),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Paste bank SMS or loan spam to test on-device AI',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: isDark ? const Color(0xFFC7D2FE) : const Color(0xFF4338CA),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: Color(0xFF6366F1),
                                     ),
                                   ],
                                 ),
