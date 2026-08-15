@@ -15,6 +15,7 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/onboarding_tour_sheet.dart';
 import '../widgets/sms_permission_nudge_banner.dart';
 import '../services/notification_service.dart';
+import '../widgets/app_toast.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -337,25 +338,17 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         });
         _updateMonthlyMetrics();
 
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Deleted "${deletedPayment.description}"'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            action: SnackBarAction(
-              label: 'UNDO',
-              textColor: const Color(0xFF60A5FA),
-              onPressed: () async {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                await DatabaseService.instance.addPayment(deletedPayment);
-                if (mounted) {
-                  _refreshData();
-                }
-              },
-            ),
-            duration: const Duration(seconds: 2, milliseconds: 500),
-          ),
+        AppToast.show(
+          context,
+          message: 'Deleted "${deletedPayment.description}"',
+          actionLabel: 'UNDO',
+          onAction: () async {
+            await DatabaseService.instance.addPayment(deletedPayment);
+            if (mounted) {
+              _refreshData();
+            }
+          },
+          duration: const Duration(seconds: 3),
         );
       }
     }
@@ -376,48 +369,28 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       }
       _updateMonthlyMetrics();
 
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(
-                isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
-                color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  isExcluded
-                      ? 'Excluded from budget'
-                      : 'Included in budget',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w500),
-                ),
-              ),
-            ],
-          ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          action: SnackBarAction(
-            label: 'UNDO',
-            textColor: const Color(0xFF60A5FA),
-            onPressed: () async {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
-              if (mounted) {
-                final idx = _payments.indexWhere((p) => p.id == payment.id);
-                if (idx != -1) {
-                  setState(() {
-                    _payments[idx] = payment.copyWith(isExcludedFromBudget: !isExcluded);
-                  });
-                }
-                _updateMonthlyMetrics();
-              }
-            },
-          ),
-          duration: const Duration(seconds: 2, milliseconds: 500),
+      AppToast.show(
+        context,
+        message: isExcluded ? 'Excluded from budget' : 'Included in budget',
+        icon: Icon(
+          isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
+          color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+          size: 18,
         ),
+        actionLabel: 'UNDO',
+        onAction: () async {
+          await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
+          if (mounted) {
+            final idx = _payments.indexWhere((p) => p.id == payment.id);
+            if (idx != -1) {
+              setState(() {
+                _payments[idx] = payment.copyWith(isExcludedFromBudget: !isExcluded);
+              });
+            }
+            _updateMonthlyMetrics();
+          }
+        },
+        duration: const Duration(seconds: 3),
       );
     }
   }

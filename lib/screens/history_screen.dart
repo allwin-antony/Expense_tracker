@@ -10,6 +10,7 @@ import '../widgets/payment_card.dart';
 import '../widgets/edit_payment_dialog.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/category_picker_sheet.dart';
+import '../widgets/app_toast.dart';
 
 enum TimeFilterPreset {
   allTime,
@@ -576,25 +577,17 @@ class HistoryScreenState extends State<HistoryScreen> {
           _payments.removeWhere((p) => p.id == payment.id);
           _totalCount = (_totalCount - 1).clamp(0, 999999);
         });
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Deleted "${deletedPayment.description}"'),
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-            action: SnackBarAction(
-              label: 'UNDO',
-              textColor: const Color(0xFF60A5FA),
-              onPressed: () async {
-                ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                await DatabaseService.instance.addPayment(deletedPayment);
-                if (mounted) {
-                  _loadFilteredData();
-                }
-              },
-            ),
-            duration: const Duration(seconds: 2, milliseconds: 500),
-          ),
+        AppToast.show(
+          context,
+          message: 'Deleted "${deletedPayment.description}"',
+          actionLabel: 'UNDO',
+          onAction: () async {
+            await DatabaseService.instance.addPayment(deletedPayment);
+            if (mounted) {
+              _loadFilteredData();
+            }
+          },
+          duration: const Duration(seconds: 3),
         );
       }
     }
@@ -636,34 +629,27 @@ class HistoryScreenState extends State<HistoryScreen> {
         });
       }
 
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            isExcluded
-                ? 'Excluded from budget'
-                : 'Included in budget',
-          ),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          action: SnackBarAction(
-            label: 'UNDO',
-            textColor: const Color(0xFF60A5FA),
-            onPressed: () async {
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
-              if (mounted) {
-                final idx = _payments.indexWhere((p) => p.id == payment.id);
-                if (idx != -1) {
-                  setState(() {
-                    _payments[idx] = payment.copyWith(isExcludedFromBudget: !isExcluded);
-                  });
-                }
-              }
-            },
-          ),
-          duration: const Duration(seconds: 2, milliseconds: 500),
+      AppToast.show(
+        context,
+        message: isExcluded ? 'Excluded from budget' : 'Included in budget',
+        icon: Icon(
+          isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
+          color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+          size: 18,
         ),
+        actionLabel: 'UNDO',
+        onAction: () async {
+          await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
+          if (mounted) {
+            final idx = _payments.indexWhere((p) => p.id == payment.id);
+            if (idx != -1) {
+              setState(() {
+                _payments[idx] = payment.copyWith(isExcludedFromBudget: !isExcluded);
+              });
+            }
+          }
+        },
+        duration: const Duration(seconds: 3),
       );
     }
   }
