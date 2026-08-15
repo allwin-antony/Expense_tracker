@@ -1,6 +1,7 @@
 import '../models/payment.dart';
 import 'financial_regex_patterns.dart';
 import 'ml/authenticity_validator.dart';
+import 'ml/clause_semantic_scoper.dart';
 
 class ParsedTransactionResult {
   final bool isSuccess;
@@ -86,45 +87,56 @@ class MessageParserPipeline {
       );
     }
 
-    // 1. Extract Amount
+    // 1. Isolate the primary Transaction Event clause using ClauseSemanticScoper
+    final txnClause = ClauseSemanticScoper.instance.isolateTransactionClause(cleanText);
+
+    // 2. Extract Amount from Scoped Transaction Clause
     double? extractedAmount;
 
-    // Check if SMS contains balance phrases (e.g. "passbook balance against ... is Rs. 46,119")
-    final balancePhraseRegex = RegExp(
-      r'(?:passbook\s*balance|available\s*balance|avl\s*bal|account\s*balance|bal|bal:)\s*(?:against\s+[A-Za-z0-9*]+\s+)?(?:is\s*)?(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)',
-      caseSensitive: false,
-    );
-
-    final allMatches = FinancialRegexPatterns.amountRegex.allMatches(cleanText).toList();
-    if (allMatches.length > 1) {
-      final balanceMatch = balancePhraseRegex.firstMatch(cleanText);
-      final balanceAmountStr = balanceMatch?.group(1)?.replaceAll(',', '').trim();
-
-      for (final match in allMatches) {
-        final valStr = match.group(1)?.replaceAll(',', '').trim();
-        if (valStr != null && valStr != balanceAmountStr) {
-          final candidate = double.tryParse(valStr);
-          if (candidate != null && candidate > 0) {
-            extractedAmount = candidate;
-            break;
-          }
-        }
-      }
+    final prefixMatch = FinancialRegexPatterns.amountRegex.firstMatch(txnClause);
+    if (prefixMatch != null && prefixMatch.group(1) != null) {
+      final amountStr = prefixMatch.group(1)!.replaceAll(',', '').trim();
+      extractedAmount = double.tryParse(amountStr);
     }
 
     if (extractedAmount == null) {
-      final prefixMatch = FinancialRegexPatterns.amountRegex.firstMatch(cleanText);
-      if (prefixMatch != null && prefixMatch.group(1) != null) {
-        final amountStr = prefixMatch.group(1)!.replaceAll(',', '').trim();
-        extractedAmount = double.tryParse(amountStr);
-      }
-    }
-
-    if (extractedAmount == null) {
-      final suffixMatch = FinancialRegexPatterns.amountSuffixRegex.firstMatch(cleanText);
+      final suffixMatch = FinancialRegexPatterns.amountSuffixRegex.firstMatch(txnClause);
       if (suffixMatch != null && suffixMatch.group(1) != null) {
         final amountStr = suffixMatch.group(1)!.replaceAll(',', '').trim();
         extractedAmount = double.tryParse(amountStr);
+      }
+    }
+
+    // Fallback: If scoped clause failed to extract amount, scan full text excluding balance phrases
+    if (extractedAmount == null || extractedAmount <= 0) {
+      final balancePhraseRegex = RegExp(
+        r'(?:passbook\s*balance|available\s*balance|avl\s*bal|account\s*balance|bal|bal:)\s*(?:against\s+[A-Za-z0-9*]+\s+)?(?:is\s*)?(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d{1,2})?)',
+        caseSensitive: false,
+      );
+
+      final allMatches = FinancialRegexPatterns.amountRegex.allMatches(cleanText).toList();
+      if (allMatches.length > 1) {
+        final balanceMatch = balancePhraseRegex.firstMatch(cleanText);
+        final balanceAmountStr = balanceMatch?.group(1)?.replaceAll(',', '').trim();
+
+        for (final match in allMatches) {
+          final valStr = match.group(1)?.replaceAll(',', '').trim();
+          if (valStr != null && valStr != balanceAmountStr) {
+            final candidate = double.tryParse(valStr);
+            if (candidate != null && candidate > 0) {
+              extractedAmount = candidate;
+              break;
+            }
+          }
+        }
+      }
+
+      if (extractedAmount == null) {
+        final fullPrefix = FinancialRegexPatterns.amountRegex.firstMatch(cleanText);
+        if (fullPrefix != null && fullPrefix.group(1) != null) {
+          final amountStr = fullPrefix.group(1)!.replaceAll(',', '').trim();
+          extractedAmount = double.tryParse(amountStr);
+        }
       }
     }
 
