@@ -8,6 +8,7 @@ class AppPreferencesService {
   static const String _keyObscureAmounts = 'obscure_amounts';
   static const String _keyNotificationsEnabled = 'notifications_enabled';
   static const String _keySilentNotifications = 'silent_notifications';
+  static const String _keyHasCompletedOnboarding = 'has_completed_onboarding';
 
   SharedPreferences? _prefs;
 
@@ -65,5 +66,13 @@ class AppPreferencesService {
   Future<void> setSilentNotificationEnabled(bool enabled) async {
     await _prefs?.setBool(_keySilentNotifications, enabled);
     silentNotificationsNotifier.value = enabled;
+  }
+
+  bool get hasCompletedOnboarding {
+    return _prefs?.getBool(_keyHasCompletedOnboarding) ?? false;
+  }
+
+  Future<void> setHasCompletedOnboarding(bool completed) async {
+    await _prefs?.setBool(_keyHasCompletedOnboarding, completed);
   }
 }

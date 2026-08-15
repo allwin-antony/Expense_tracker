@@ -12,6 +12,8 @@ import '../widgets/edit_payment_dialog.dart';
 import '../widgets/sms_sync_dialog.dart';
 import '../widgets/sms_permission_disclosure_dialog.dart';
 import '../widgets/shimmer_loading.dart';
+import '../widgets/onboarding_tour_sheet.dart';
+import '../widgets/sms_permission_nudge_banner.dart';
 import '../services/notification_service.dart';
 import 'settings_screen.dart';
 
@@ -60,6 +62,12 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _initLiveSmsListener();
     _quickSyncAndRefresh();
     DatabaseService.instance.dataChangeNotifier.addListener(_onExternalDataChanged);
+
+    if (!AppPreferencesService.instance.hasCompletedOnboarding) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        OnboardingTourSheet.show(context);
+      });
+    }
   }
 
   @override
@@ -513,6 +521,12 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   parent: BouncingScrollPhysics(),
                 ),
                 slivers: [
+                  SliverToBoxAdapter(
+                    child: SmsPermissionNudgeBanner(
+                      onPermissionGranted: _refreshData,
+                    ),
+                  ),
+
                   // Hero Balance Card & Actions
                   SliverToBoxAdapter(
                     child: Padding(

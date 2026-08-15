@@ -62,5 +62,15 @@ void main() {
       expect(AppPreferencesService.instance.isSilentNotificationEnabled, isFalse);
       expect(AppPreferencesService.instance.silentNotificationsNotifier.value, isFalse);
     });
+
+    test('Tracks onboarding completed status accurately', () async {
+      expect(AppPreferencesService.instance.hasCompletedOnboarding, isFalse);
+
+      await AppPreferencesService.instance.setHasCompletedOnboarding(true);
+      expect(AppPreferencesService.instance.hasCompletedOnboarding, isTrue);
+
+      await AppPreferencesService.instance.setHasCompletedOnboarding(false);
+      expect(AppPreferencesService.instance.hasCompletedOnboarding, isFalse);
+    });
   });
 }

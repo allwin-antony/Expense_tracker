@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import '../services/app_preferences_service.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/database_service.dart';
+import '../widgets/onboarding_tour_sheet.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -291,15 +292,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                   ),
                   color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  child: const Column(
+                  child: Column(
                     children: [
                       ListTile(
+                        leading: const Icon(Icons.explore_outlined, size: 20, color: Color(0xFF2563EB)),
+                        title: const Text('Replay App Tour', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
+                        subtitle: const Text('Interactive walkthrough of features', style: TextStyle(fontSize: 11.5)),
+                        trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+                        onTap: () {
+                          HapticFeedback.selectionClick();
+                          OnboardingTourSheet.show(context);
+                        },
+                      ),
+                      Divider(height: 1, color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)),
+                      const ListTile(
                         leading: Icon(Icons.shield_outlined, size: 20, color: Color(0xFF10B981)),
                         title: Text('Privacy Guarantee', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
                         subtitle: Text('100% Offline & Private • Zero Cloud Servers', style: TextStyle(fontSize: 11.5)),
                       ),
-                      Divider(height: 1),
-                      ListTile(
+                      Divider(height: 1, color: isDark ? const Color(0xFF334155) : const Color(0xFFF1F5F9)),
+                      const ListTile(
                         leading: Icon(Icons.info_outline_rounded, size: 20, color: Color(0xFF64748B)),
                         title: Text('Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14.5)),
                         trailing: Text('1.1.0+2', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
