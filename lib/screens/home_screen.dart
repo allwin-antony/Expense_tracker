@@ -340,6 +340,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               label: 'UNDO',
               textColor: const Color(0xFF60A5FA),
               onPressed: () async {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 await DatabaseService.instance.addPayment(deletedPayment);
                 if (mounted) {
                   _refreshData();
@@ -395,6 +396,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             label: 'UNDO',
             textColor: const Color(0xFF60A5FA),
             onPressed: () async {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
               await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
               if (mounted) {
                 final idx = _payments.indexWhere((p) => p.id == payment.id);

@@ -586,6 +586,7 @@ class HistoryScreenState extends State<HistoryScreen> {
               label: 'UNDO',
               textColor: const Color(0xFF60A5FA),
               onPressed: () async {
+                ScaffoldMessenger.of(context).hideCurrentSnackBar();
                 await DatabaseService.instance.addPayment(deletedPayment);
                 if (mounted) {
                   _loadFilteredData();
@@ -649,6 +650,7 @@ class HistoryScreenState extends State<HistoryScreen> {
             label: 'UNDO',
             textColor: const Color(0xFF60A5FA),
             onPressed: () async {
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
               await DatabaseService.instance.toggleExcludePayment(payment.id!, !isExcluded);
               if (mounted) {
                 final idx = _payments.indexWhere((p) => p.id == payment.id);
