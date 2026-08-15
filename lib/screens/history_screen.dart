@@ -231,9 +231,15 @@ class HistoryScreenState extends State<HistoryScreen> {
         endDate: endDate,
       );
 
-      // 2. Fetch first page of paginated records
-      final firstPage = await DatabaseService.instance.getFilteredPaymentsPaginated(
-        limit: _pageSize,
+      // Determine current loaded count to prevent list truncation on silent reloads
+      final int currentLoadedCount = _payments.length;
+      final int fetchLimit = silent 
+          ? (currentLoadedCount > _pageSize ? currentLoadedCount : _pageSize) 
+          : _pageSize;
+
+      // 2. Fetch paginated records
+      final pageData = await DatabaseService.instance.getFilteredPaymentsPaginated(
+        limit: fetchLimit,
         offset: 0,
         searchQuery: _searchQuery,
         category: _selectedCategory,
@@ -244,11 +250,11 @@ class HistoryScreenState extends State<HistoryScreen> {
 
       if (mounted) {
         setState(() {
-          _payments = firstPage;
+          _payments = pageData;
           _totalCount = metrics.totalCount;
           _filteredTotalExpense = metrics.totalExpense;
           _filteredTotalIncome = metrics.totalIncome;
-          _hasMore = firstPage.length < metrics.totalCount;
+          _hasMore = _payments.length < metrics.totalCount;
           if (!silent) _isLoading = false;
         });
       }
