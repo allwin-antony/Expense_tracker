@@ -15,7 +15,9 @@ A modern, privacy-first, intelligent Android application for tracking personal f
 - 🛍️ **Custom User Merchant Rules (Dynamic Learning Engine)**: Remembers and auto-applies custom merchant categorizations (e.g. mapping local store *"Sharma Dhaba"* $\rightarrow$ *"Food & Dining"*) in local SQLite storage. User custom rules take 100% precedence in both manual entries and automated SMS syncs.
 - 📊 **Interactive Analytics & Merchant Rankings**: Powered by `fl_chart`. Toggle between **By Category** pie charts and **By Merchant** top spending rankings with Gold (🥇 #1), Silver (🥈 #2), and Bronze (🥉 #3) badges, order frequencies, and spending percentages.
 - 📅 **Redesigned Date Range Picker**: Styled time filter button with a sleek Bottom Sheet modal picker supporting All Time, This Month, Last Month, Last 30 Days, This Year, Selected Month, and Custom Ranges.
-- 📩 **Automated Financial SMS Parsing**: Multi-tier regex pipeline supporting Indian banking and UPI SMS formats (HDFC, SBI, ICICI, Axis, Paytm, PhonePe, Cred, etc.) with AI authenticity verification.
+- 📩 **Intelligent Financial SMS Parsing (Multi-Sentence Scoper)**: Powered by a multi-tier regex pipeline with **ClauseSemanticScoper** that splits sentences and scopes extraction strictly to transaction event clauses, preventing balance-amount confusion. Handles complex banking SMS formats (HDFC, SBI, ICICI, Axis, EPFO, mutual funds, etc.).
+- 🛡️ **Anti-Fraud Security Shield & Sender ID Check**: Enforces official **TRAI alphanumeric headers** (ignores personal mobile numbers to prevent spoofing/pranks) and automatically rejects spam/phishing baits (KYC block threats, fake lotteries, utility deactivations, work-from-home offers, and APK malware links) via `scamFilterRegex`.
+- 💱 **Multi-Currency Processing**: Supports **USD ($), GBP (£), and EUR (€)** transaction parsing for international subscriptions (AWS, Netflix US, OpenAI) and foreign travel.
 - 🔒 **100% Offline & Privacy-Centric**: Zero cloud servers, zero remote APIs, and no native C++/Python binaries. All processing runs locally on device.
 - 💾 **Local SQLite Storage**: Fast, persistent storage utilizing `sqflite` for offline-first performance.
 - 🎨 **Modern Material Design**: Glassmorphism UI, responsive bottom sheets, shimmer loading skeletons, custom dialogs, and smooth micro-interactions.
@@ -30,7 +32,7 @@ flowchart TD
     B --> C[FastTextEngine - Quantized On-Device ML]
     
     C -->|Classifies Category| D{Semantic Intent}
-    D -->|Promotional Spam / OTP| E[Reject Message]
+    D -->|Promotional Spam / OTP / Scam| E[Reject Message]
     D -->|Genuine Transaction| F[AuthenticityValidator]
     
     F --> G[FinancialRegexPatterns Extraction]
@@ -117,7 +119,7 @@ This generates `assets/models/financial_fasttext.json` after running Stochastic 
 
 ## 🧪 Testing
 
-Run the full automated unit test suite covering FastText inference, SMS parser pipelines, custom merchant rules, merchant analytics, budget calculations, and date utilities:
+Run the full automated unit test suite covering FastText inference, Clause Semantic Scoping, TRAI header checks, SMS parser pipelines, custom merchant rules, merchant analytics, budget calculations, and date utilities:
 
 ```bash
 flutter test
@@ -125,7 +127,7 @@ flutter test
 
 Expected output:
 ```
-00:01 +53: All tests passed!
+00:04 +196: All tests passed!
 ```
 
 ---
