@@ -337,6 +337,22 @@ void main() {
       }
     });
 
+    test('#43 Multi-Line Sent UPI transaction with Call/SMS block message', () {
+      final sms = '''Sent Rs.10000.00
+From HDFC Bank A/C *5095
+To ancyantony968@okaxis
+On 11/06/26
+Ref 616291718743
+Not You?
+Call 18002586161/SMS BLOCK UPI to 7308080808''';
+      final res = pipeline.parse(sms);
+      expect(res.isSuccess, isTrue);
+      expect(res.payment?.amount, 10000.0);
+      expect(res.payment?.type, TransactionType.debit);
+      expect(res.payment?.description, 'Ancyantony');
+      expect(res.payment?.paymentMode, PaymentMode.upi);
+    });
+
     group('89 Additional Phishing, Scam, and Real Transaction Validation Cases', () {
       final userCases = [
         // --- Unstructured Valid Transactions ---

@@ -95,11 +95,11 @@ class FinancialRegexPatterns {
 
   // Merchant extraction patterns
   static final List<RegExp> merchantPatterns = [
-    RegExp(r'(?:to|at|towards)\s+([A-Za-z0-9\s._\-&]+?)(?:\s+(?:on|ref|via|using|avl|bal|upi|from|a/c|thru|dated|worth)|[\.\,\;]|$)', caseSensitive: false),
-    RegExp(r'(?:info\s*[:\-])\s*([A-Za-z0-9\s._\-&]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:to|at|towards)\s+([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal|upi|from|a/c|thru|dated|worth)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:info\s*[:\-])\s*([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
     RegExp(r'(?:VPA\s+)([a-zA-Z0-9.\-_]+@[a-zA-Z]+)', caseSensitive: false),
-    RegExp(r'(?:for\s+)([A-Za-z0-9\s._\-&]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
-    RegExp(r'(?:paid\s+to\s+)([A-Za-z0-9\s._\-&]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:for\s+)([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:paid\s+to\s+)([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
   ];
 
   /// Validates whether the sender is an official TRAI alphanumeric header and not a personal phone number
