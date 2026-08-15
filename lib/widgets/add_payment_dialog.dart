@@ -214,9 +214,6 @@ class _AddPaymentDialogState extends State<AddPaymentDialog> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isIncome = _selectedType == TransactionType.credit;
-    final availableCategories = isIncome
-        ? Category.incomeCategories
-        : Category.expenseCategories;
 
     return Container(
       decoration: BoxDecoration(

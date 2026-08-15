@@ -197,7 +197,6 @@ class MerchantCategorizer {
 
     // Financial Services & UPI Apps
     'cred': 'Bills & Utilities',
-    'cred club': 'Bills & Utilities',
     'bharatpe': 'Financial Services',
     'bajaj finserv': 'Financial Services',
     'mobikwik': 'Financial Services',

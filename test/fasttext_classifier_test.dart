@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/parser/ml/fasttext_engine.dart';
-import 'package:expense_tracker/parser/ml/authenticity_validator.dart';
 import 'package:expense_tracker/parser/message_parser_pipeline.dart';
 import 'package:expense_tracker/models/payment.dart';
 
