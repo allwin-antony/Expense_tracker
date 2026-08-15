@@ -107,6 +107,7 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Positioned(
       bottom: mediaQuery.padding.bottom + 80, // Positioned safely above bottom navigation bar
@@ -121,17 +122,21 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF0F172A),
+                color: isDark ? const Color(0xFF0F172A) : Colors.white,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.35),
+                    color: isDark
+                        ? Colors.black.withValues(alpha: 0.35)
+                        : const Color(0xFF0F172A).withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 6),
                   ),
                 ],
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.12)
+                      : const Color(0xFFE2E8F0),
                   width: 1,
                 ),
               ),
@@ -144,8 +149,8 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
                   Expanded(
                     child: Text(
                       widget.message,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : const Color(0xFF0F172A),
                         fontSize: 13.5,
                         fontWeight: FontWeight.w500,
                       ),
@@ -159,17 +164,21 @@ class _ToastWidgetState extends State<_ToastWidget> with SingleTickerProviderSta
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF2563EB).withValues(alpha: 0.25),
+                          color: isDark
+                              ? const Color(0xFF2563EB).withValues(alpha: 0.25)
+                              : const Color(0xFF2563EB).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: const Color(0xFF3B82F6).withValues(alpha: 0.4),
+                            color: isDark
+                                ? const Color(0xFF3B82F6).withValues(alpha: 0.4)
+                                : const Color(0xFF2563EB).withValues(alpha: 0.25),
                             width: 0.8,
                           ),
                         ),
                         child: Text(
                           widget.actionLabel!,
-                          style: const TextStyle(
-                            color: Color(0xFF60A5FA),
+                          style: TextStyle(
+                            color: isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB),
                             fontWeight: FontWeight.bold,
                             fontSize: 12.5,
                           ),

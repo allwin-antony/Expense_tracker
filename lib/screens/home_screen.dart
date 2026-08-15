@@ -368,13 +368,16 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         });
       }
       _updateMonthlyMetrics();
+      final isDark = Theme.of(context).brightness == Brightness.dark;
 
       AppToast.show(
         context,
         message: isExcluded ? 'Excluded from budget' : 'Included in budget',
         icon: Icon(
           isExcluded ? Icons.do_not_disturb_on_outlined : Icons.notifications_active_outlined,
-          color: isExcluded ? const Color(0xFFF87171) : const Color(0xFF4ADE80),
+          color: isExcluded
+              ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
+              : (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)),
           size: 18,
         ),
         actionLabel: 'UNDO',
