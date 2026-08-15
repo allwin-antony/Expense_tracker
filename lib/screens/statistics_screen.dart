@@ -5,6 +5,7 @@ import 'package:fl_chart/fl_chart.dart';
 import '../models/payment.dart';
 import '../models/category.dart';
 import '../services/database_service.dart';
+import '../services/app_preferences_service.dart';
 import '../widgets/shimmer_loading.dart';
 
 class StatisticsScreen extends StatefulWidget {
@@ -135,6 +136,24 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           'Financial Analytics',
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
+        actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: AppPreferencesService.instance.obscureNotifier,
+            builder: (context, isObscured, _) {
+              return IconButton(
+                icon: Icon(
+                  isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: isObscured ? const Color(0xFFF59E0B) : null,
+                ),
+                tooltip: isObscured ? 'Show Amounts' : 'Hide Amounts (Public Mode)',
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  AppPreferencesService.instance.toggleObscureAmounts();
+                },
+              );
+            },
+          ),
+        ],
       ),
       body: _isLoading
           ? const SingleChildScrollView(
@@ -245,14 +264,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  '₹${NumberFormat('#,##,###').format(_totalIncome)}',
-                                  style: TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
-                                    color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
-                                  ),
+                                ValueListenableBuilder<bool>(
+                                  valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                  builder: (context, isObscured, _) {
+                                    return Text(
+                                      isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###').format(_totalIncome)}',
+                                      style: TextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
+                                        color: isDark ? const Color(0xFF6EE7B7) : const Color(0xFF047857),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -296,14 +320,19 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  '₹${NumberFormat('#,##,###').format(_totalExpense)}',
-                                  style: TextStyle(
-                                    fontSize: 19,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.3,
-                                    color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
-                                  ),
+                                ValueListenableBuilder<bool>(
+                                  valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                  builder: (context, isObscured, _) {
+                                    return Text(
+                                      isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###').format(_totalExpense)}',
+                                      style: TextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.3,
+                                        color: isDark ? const Color(0xFFFCA5A5) : const Color(0xFFB91C1C),
+                                      ),
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -337,15 +366,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                '₹${NumberFormat('#,##,###.00').format(_totalIncome - _totalExpense)}',
-                                style: TextStyle(
-                                  fontSize: 14.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: (_totalIncome - _totalExpense) >= 0
-                                      ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A))
-                                      : (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626)),
-                                ),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                builder: (context, isObscured, _) {
+                                  return Text(
+                                    isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###.00').format(_totalIncome - _totalExpense)}',
+                                    style: TextStyle(
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: (_totalIncome - _totalExpense) >= 0
+                                          ? (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A))
+                                          : (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626)),
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -365,9 +399,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                '₹${NumberFormat('#,##,###.00').format(dailyAverageExpense)}',
-                                style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                              ValueListenableBuilder<bool>(
+                                valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                builder: (context, isObscured, _) {
+                                  return Text(
+                                    isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###.00').format(dailyAverageExpense)}',
+                                    style: const TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -679,12 +718,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                                     fontSize: 13.5,
                                                   ),
                                                 ),
-                                                Text(
-                                                  '₹${NumberFormat('#,##,###.00').format(entry.value)}',
-                                                  style: const TextStyle(
-                                                    fontWeight: FontWeight.w700,
-                                                    fontSize: 13.5,
-                                                  ),
+                                                ValueListenableBuilder<bool>(
+                                                  valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                                  builder: (context, isObscured, _) {
+                                                    return Text(
+                                                      isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###.00').format(entry.value)}',
+                                                      style: const TextStyle(
+                                                        fontWeight: FontWeight.w700,
+                                                        fontSize: 13.5,
+                                                      ),
+                                                    );
+                                                  },
                                                 ),
                                               ],
                                             ),
@@ -846,15 +890,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                                             ],
                                           ),
                                         ),
-                                        Text(
-                                          '₹${NumberFormat('#,##,###.00').format(merchant.totalAmount)}',
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w700,
-                                            color: _chartType == TransactionType.debit
-                                                ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
-                                                : (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)),
-                                          ),
+                                        ValueListenableBuilder<bool>(
+                                          valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                          builder: (context, isObscured, _) {
+                                            return Text(
+                                              isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###.00').format(merchant.totalAmount)}',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.w700,
+                                                color: _chartType == TransactionType.debit
+                                                    ? (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626))
+                                                    : (isDark ? const Color(0xFF4ADE80) : const Color(0xFF16A34A)),
+                                              ),
+                                            );
+                                          },
                                         ),
                                       ],
                                     ),

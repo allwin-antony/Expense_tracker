@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/payment.dart';
+import '../services/app_preferences_service.dart';
+import '../services/biometric_auth_service.dart';
+import '../services/database_service.dart';
+import '../widgets/add_payment_dialog.dart';
 import 'home_screen.dart';
 import 'history_screen.dart';
 import 'statistics_screen.dart';
-import '../widgets/add_payment_dialog.dart';
-import '../services/database_service.dart';
+import 'lock_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -14,8 +17,10 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  bool _isLocked = false;
+  DateTime? _pausedAt;
 
   final GlobalKey<HomeScreenState> _homeKey = GlobalKey<HomeScreenState>();
   final GlobalKey<HistoryScreenState> _historyKey = GlobalKey<HistoryScreenState>();
@@ -23,6 +28,47 @@ class _MainScreenState extends State<MainScreen> {
   String? _historyCategory;
   String? _historyType;
   DateTime? _historyMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    if (AppPreferencesService.instance.isBiometricEnabled) {
+      _isLocked = true;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      if (!BiometricAuthService.instance.isAuthenticating) {
+        _pausedAt ??= DateTime.now();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (BiometricAuthService.instance.isAuthenticating) {
+        return; // Ignore lifecycle resume triggered by OS biometric dialog dismissal
+      }
+
+      if (_pausedAt != null) {
+        final elapsed = DateTime.now().difference(_pausedAt!);
+        _pausedAt = null;
+        // Only lock if app was genuinely in background for over 800ms
+        if (elapsed.inMilliseconds >= 800) {
+          if (AppPreferencesService.instance.isBiometricEnabled && !_isLocked) {
+            setState(() {
+              _isLocked = true;
+            });
+          }
+        }
+      }
+    }
+  }
 
   void _onItemTapped(int index) {
     if (_selectedIndex != index) {
@@ -69,6 +115,16 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLocked) {
+      return LockScreen(
+        onUnlocked: () {
+          setState(() {
+            _isLocked = false;
+          });
+        },
+      );
+    }
+
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 

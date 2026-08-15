@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/payment.dart';
 import '../services/database_service.dart';
 import '../services/sms_sync_service.dart';
+import '../services/app_preferences_service.dart';
 import '../utils/date_group_helper.dart';
 import '../widgets/payment_card.dart';
 import '../widgets/add_payment_dialog.dart';
@@ -13,6 +14,7 @@ import '../widgets/sms_permission_disclosure_dialog.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/smart_parser_sheet.dart';
 import '../services/notification_service.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final VoidCallback? onNavigateToHistory;
@@ -456,6 +458,16 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Settings',
+            onPressed: () {
+              HapticFeedback.selectionClick();
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const SettingsScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF6366F1)),
             tooltip: 'Test AI Smart Parser',
             onPressed: _openSmartParser,
@@ -530,14 +542,69 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(
-                                      'Monthly Balance',
-                                      style: TextStyle(
-                                        color: Colors.white.withValues(alpha: 0.85),
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
-                                        letterSpacing: 0.2,
-                                      ),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          'Monthly Balance',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.85),
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.2,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ValueListenableBuilder<bool>(
+                                          valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                          builder: (context, isObscured, _) {
+                                            return Material(
+                                              color: Colors.transparent,
+                                              child: InkWell(
+                                                onTap: () {
+                                                  HapticFeedback.selectionClick();
+                                                  AppPreferencesService.instance.toggleObscureAmounts();
+                                                },
+                                                borderRadius: BorderRadius.circular(16),
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                                  decoration: BoxDecoration(
+                                                    color: isObscured
+                                                        ? const Color(0xFFF59E0B).withValues(alpha: 0.35)
+                                                        : Colors.white.withValues(alpha: 0.2),
+                                                    borderRadius: BorderRadius.circular(16),
+                                                    border: Border.all(
+                                                      color: isObscured
+                                                          ? const Color(0xFFFBBF24).withValues(alpha: 0.7)
+                                                          : Colors.white.withValues(alpha: 0.35),
+                                                      width: 1,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      Icon(
+                                                        isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                                        size: 16,
+                                                        color: isObscured ? const Color(0xFFFBBF24) : Colors.white,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Text(
+                                                        isObscured ? 'Hidden' : 'Hide',
+                                                        style: TextStyle(
+                                                          fontSize: 11.5,
+                                                          fontWeight: FontWeight.w700,
+                                                          color: isObscured ? const Color(0xFFFBBF24) : Colors.white,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ],
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -572,14 +639,19 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text(
-                                  '₹${NumberFormat('#,##,###.00').format(_monthlyBalance)}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 30,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.5,
-                                  ),
+                                ValueListenableBuilder<bool>(
+                                  valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                  builder: (context, isObscured, _) {
+                                    return Text(
+                                      isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###.00').format(_monthlyBalance)}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 30,
+                                        fontWeight: FontWeight.w800,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    );
+                                  },
                                 ),
                                 const SizedBox(height: 18),
                                 Container(
@@ -620,14 +692,19 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
-                                                Text(
-                                                  '₹${NumberFormat('#,##,###').format(_monthlyIncome)}',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 14.5,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                ValueListenableBuilder<bool>(
+                                                  valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                                  builder: (context, isObscured, _) {
+                                                    return Text(
+                                                      isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###').format(_monthlyIncome)}',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 14.5,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    );
+                                                  },
                                                 ),
                                               ],
                                             ),
@@ -672,14 +749,19 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                                     fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
-                                                Text(
-                                                  '₹${NumberFormat('#,##,###').format(_monthlyExpense)}',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 14.5,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                ValueListenableBuilder<bool>(
+                                                  valueListenable: AppPreferencesService.instance.obscureNotifier,
+                                                  builder: (context, isObscured, _) {
+                                                    return Text(
+                                                      isObscured ? '₹ ••••••' : '₹${NumberFormat('#,##,###').format(_monthlyExpense)}',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 14.5,
+                                                        fontWeight: FontWeight.w700,
+                                                      ),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    );
+                                                  },
                                                 ),
                                               ],
                                             ),

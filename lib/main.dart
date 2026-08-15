@@ -3,12 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
+import 'services/app_preferences_service.dart';
 import 'parser/ml/fasttext_engine.dart';
 import 'parser/merchant_categorizer.dart';
 import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize shared preferences
+  await AppPreferencesService.instance.init();
 
   // Initialize database
   await DatabaseService.instance.database;

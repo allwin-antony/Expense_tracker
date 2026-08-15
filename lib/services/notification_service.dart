@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/payment.dart';
 import 'database_service.dart';
+import 'app_preferences_service.dart';
 
 /// Top-level background entry point required by flutter_local_notifications for action buttons
 @pragma('vm:entry-point')
@@ -115,9 +116,20 @@ class NotificationService {
       enableVibration: true,
     );
 
-    await _notificationsPlugin
-        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(androidChannel);
+    // Create low-importance silent Android channel
+    final silentChannel = const AndroidNotificationChannel(
+      'expense_alerts_silent_channel',
+      'Silent Transaction Alerts',
+      description: 'Delivers notifications quietly to the notification tray without sound or pop-up.',
+      importance: Importance.low,
+      playSound: false,
+      enableVibration: false,
+    );
+
+    final androidImplementation = _notificationsPlugin
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
+    await androidImplementation?.createNotificationChannel(androidChannel);
+    await androidImplementation?.createNotificationChannel(silentChannel);
 
     _isInitialized = true;
   }
@@ -192,6 +204,11 @@ class NotificationService {
 
   /// Displays an interactive heads-up notification with Exclude & Delete action buttons
   Future<void> showTransactionCapturedNotification(Payment payment) async {
+    if (!AppPreferencesService.instance.areNotificationsEnabled) {
+      debugPrint('[NotificationService] Notifications disabled by user preference');
+      return;
+    }
+
     if (!_isInitialized) await initialize();
 
     final isIncome = payment.type == TransactionType.credit;
@@ -210,12 +227,16 @@ class NotificationService {
       'type': payment.type.name,
     });
 
+    final isSilent = AppPreferencesService.instance.isSilentNotificationEnabled;
+
     final androidDetails = AndroidNotificationDetails(
-      _channelId,
-      _channelName,
+      isSilent ? 'expense_alerts_silent_channel' : _channelId,
+      isSilent ? 'Silent Transaction Alerts' : _channelName,
       channelDescription: _channelDescription,
-      importance: Importance.high,
-      priority: Priority.high,
+      importance: isSilent ? Importance.low : Importance.high,
+      priority: isSilent ? Priority.low : Priority.high,
+      playSound: !isSilent,
+      enableVibration: !isSilent,
       category: AndroidNotificationCategory.status,
       icon: '@mipmap/ic_launcher',
       color: isIncome ? const Color(0xFF16A34A) : const Color(0xFF2563EB),
