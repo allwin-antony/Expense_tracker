@@ -119,7 +119,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   void _onExternalDataChanged() {
     if (mounted) {
-      _loadInitialData();
+      _loadInitialData(silent: true);
     }
   }
 
@@ -155,7 +155,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   ),
                 ],
               ),
-              duration: const Duration(seconds: 3),
+              duration: const Duration(seconds: 2, milliseconds: 500),
             ),
           );
         }
@@ -163,10 +163,12 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _loadInitialData() async {
-    setState(() {
-      _isLoadingInitial = true;
-    });
+  Future<void> _loadInitialData({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _isLoadingInitial = true;
+      });
+    }
 
     try {
       final now = DateTime.now();
@@ -175,24 +177,29 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       final balance = income - expense;
       final total = await DatabaseService.instance.getPaymentCount();
 
-      final firstPage = await DatabaseService.instance.getPaymentsPaginated(
-        limit: _pageSize,
+      final int currentLoadedCount = _payments.length;
+      final int fetchLimit = silent
+          ? (currentLoadedCount > _pageSize ? currentLoadedCount : _pageSize)
+          : _pageSize;
+
+      final updatedPayments = await DatabaseService.instance.getPaymentsPaginated(
+        limit: fetchLimit,
         offset: 0,
       );
 
       if (mounted) {
         setState(() {
-          _payments = firstPage;
+          _payments = updatedPayments;
           _monthlyExpense = expense;
           _monthlyIncome = income;
           _monthlyBalance = balance;
           _totalCount = total;
-          _hasMore = firstPage.length < total;
-          _isLoadingInitial = false;
+          _hasMore = _payments.length < total;
+          if (!silent) _isLoadingInitial = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoadingInitial = false);
+      if (mounted && !silent) setState(() => _isLoadingInitial = false);
     }
   }
 
@@ -221,7 +228,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _refreshData() async {
     HapticFeedback.lightImpact();
-    await _loadInitialData();
+    await _loadInitialData(silent: true);
   }
 
   void _showSmsSyncDialog() async {
@@ -347,7 +354,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 }
               },
             ),
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 2, milliseconds: 500),
           ),
         );
       }
@@ -409,7 +416,7 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               }
             },
           ),
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 2, milliseconds: 500),
         ),
       );
     }

@@ -593,7 +593,7 @@ class HistoryScreenState extends State<HistoryScreen> {
                 }
               },
             ),
-            duration: const Duration(seconds: 4),
+            duration: const Duration(seconds: 2, milliseconds: 500),
           ),
         );
       }
@@ -662,7 +662,7 @@ class HistoryScreenState extends State<HistoryScreen> {
               }
             },
           ),
-          duration: const Duration(seconds: 4),
+          duration: const Duration(seconds: 2, milliseconds: 500),
         ),
       );
     }
