@@ -11,6 +11,10 @@ import '../widgets/edit_payment_dialog.dart';
 import '../widgets/shimmer_loading.dart';
 import '../widgets/category_picker_sheet.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/end_of_list_sync_prompt.dart';
+import '../widgets/sms_sync_dialog.dart';
+import '../widgets/sms_permission_disclosure_dialog.dart';
+import '../services/app_preferences_service.dart';
 
 enum TimeFilterPreset {
   allTime,
@@ -424,6 +428,23 @@ class HistoryScreenState extends State<HistoryScreen> {
     }
   }
 
+  void _showSmsSyncDialog() async {
+    HapticFeedback.selectionClick();
+    final hasPermission = await SmsPermissionDisclosureDialog.showDisclosureAndRequest(context);
+    if (!hasPermission || !mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => SmsSyncDialog(
+        onSyncCompleted: () {
+          _loadFilteredData(silent: true);
+        },
+      ),
+    );
+  }
+
   void _showTimeFilterPickerSheet(BuildContext context) {
     HapticFeedback.selectionClick();
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -710,6 +731,22 @@ class HistoryScreenState extends State<HistoryScreen> {
           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: AppPreferencesService.instance.obscureNotifier,
+            builder: (context, isObscured, _) {
+              return IconButton(
+                icon: Icon(
+                  isObscured ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                  color: isObscured ? const Color(0xFFF59E0B) : null,
+                ),
+                tooltip: isObscured ? 'Show Amounts' : 'Hide Amounts (Privacy Mode)',
+                onPressed: () {
+                  HapticFeedback.selectionClick();
+                  AppPreferencesService.instance.toggleObscureAmounts();
+                },
+              );
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Refresh',
@@ -1052,27 +1089,36 @@ class HistoryScreenState extends State<HistoryScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        Row(
-                          children: [
-                            if (_filteredTotalIncome > 0 && _selectedFilterType != 'Expense')
-                              Text(
-                                '+₹${NumberFormat('#,##,###').format(_filteredTotalIncome)}  ',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF16A34A),
-                                ),
-                              ),
-                            if (_filteredTotalExpense > 0 && _selectedFilterType != 'Income')
-                              Text(
-                                '-₹${NumberFormat('#,##,###').format(_filteredTotalExpense)}',
-                                style: const TextStyle(
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFFDC2626),
-                                ),
-                              ),
-                          ],
+                        ValueListenableBuilder<bool>(
+                          valueListenable: AppPreferencesService.instance.obscureNotifier,
+                          builder: (context, isObscured, _) {
+                            return Row(
+                              children: [
+                                if (_filteredTotalIncome > 0 && _selectedFilterType != 'Expense')
+                                  Text(
+                                    isObscured
+                                        ? '+₹ ••••••  '
+                                        : '+₹${NumberFormat('#,##,###').format(_filteredTotalIncome)}  ',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF16A34A),
+                                    ),
+                                  ),
+                                if (_filteredTotalExpense > 0 && _selectedFilterType != 'Income')
+                                  Text(
+                                    isObscured
+                                        ? '-₹ ••••••'
+                                        : '-₹${NumberFormat('#,##,###').format(_filteredTotalExpense)}',
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFFDC2626),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -1210,28 +1256,10 @@ class HistoryScreenState extends State<HistoryScreen> {
                                             ],
                                           )
                                         : (!_hasMore && _payments.isNotEmpty)
-                                            ? Row(
-                                                mainAxisAlignment: MainAxisAlignment.center,
-                                                children: [
-                                                  Icon(
-                                                    Icons.check_circle_outline_rounded,
-                                                    size: 15,
-                                                    color: isDark
-                                                        ? const Color(0xFF64748B)
-                                                        : const Color(0xFF94A3B8),
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                  Text(
-                                                    'All $_totalCount transactions loaded',
-                                                    style: TextStyle(
-                                                      fontSize: 12,
-                                                      fontWeight: FontWeight.w500,
-                                                      color: isDark
-                                                          ? const Color(0xFF64748B)
-                                                          : const Color(0xFF94A3B8),
-                                                    ),
-                                                  ),
-                                                ],
+                                            ? EndOfListSyncPrompt(
+                                                totalCount: _totalCount,
+                                                earliestDate: _payments.last.date,
+                                                onSyncTap: _showSmsSyncDialog,
                                               )
                                             : const SizedBox.shrink(),
                                   ),
@@ -1628,49 +1656,58 @@ class HistoryScreenState extends State<HistoryScreen> {
                 ),
               const SizedBox(width: 2),
               PopupMenuButton<String>(
-                icon: Icon(
-                  Icons.more_horiz_rounded,
-                  size: 18,
-                  color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                ),
-                padding: EdgeInsets.zero,
-                tooltip: 'Day actions',
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 'shift_day_budget_month',
-                    child: Row(
-                      children: [
-                        const Icon(Icons.calendar_month_outlined, size: 17, color: Color(0xFF7C3AED)),
-                        const SizedBox(width: 10),
-                        Text('Shift Day (${group.payments.length}) to Month...', style: const TextStyle(fontSize: 13)),
-                      ],
+                    icon: Icon(
+                      Icons.more_horiz_rounded,
+                      size: 18,
+                      color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
                     ),
-                  ),
-                  PopupMenuItem(
-                    value: allExcluded ? 'include_day' : 'exclude_day',
-                    child: Row(
-                      children: [
-                        Icon(
-                          allExcluded ? Icons.notifications_active_outlined : Icons.do_not_disturb_on_outlined,
-                          size: 17,
-                          color: allExcluded ? const Color(0xFF2563EB) : const Color(0xFFEAB308),
+                    padding: EdgeInsets.zero,
+                    tooltip: 'Day actions',
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    onSelected: (action) => _handleDateGroupAction(group, action),
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: allExcluded ? 'include_day' : 'exclude_day',
+                        child: Row(
+                          children: [
+                            Icon(
+                              allExcluded ? Icons.add_circle_outline_rounded : Icons.do_not_disturb_on_outlined,
+                              size: 18,
+                              color: allExcluded ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              allExcluded ? 'Include Entire Day' : 'Exclude Entire Day',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: allExcluded ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 10),
-                        Text(
-                          allExcluded ? 'Include Day in Budget' : 'Exclude Day from Budget',
-                          style: const TextStyle(fontSize: 13),
+                      ),
+                      const PopupMenuItem(
+                        value: 'shift_day_budget_month',
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_month_outlined, size: 18, color: Color(0xFF2563EB)),
+                            SizedBox(width: 10),
+                            Text(
+                              'Shift Day to Month...',
+                              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ],
-                onSelected: (val) => _handleDateGroupAction(group, val),
               ),
             ],
           ),
-        ],
-      ),
-    );
+      );
+    }
   }
-}
+
+

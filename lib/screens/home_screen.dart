@@ -16,6 +16,7 @@ import '../widgets/onboarding_tour_sheet.dart';
 import '../widgets/sms_permission_nudge_banner.dart';
 import '../services/notification_service.dart';
 import '../widgets/app_toast.dart';
+import '../widgets/end_of_list_sync_prompt.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -1029,24 +1030,10 @@ class HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 ],
                               )
                             : (_payments.isNotEmpty && !_hasMore)
-                                ? Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle_outline_rounded,
-                                        size: 16,
-                                        color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        'All $_totalCount transactions loaded',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w500,
-                                          color: isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8),
-                                        ),
-                                      ),
-                                    ],
+                                ? EndOfListSyncPrompt(
+                                    totalCount: _totalCount,
+                                    earliestDate: _payments.last.date,
+                                    onSyncTap: _showSmsSyncDialog,
                                   )
                                 : const SizedBox.shrink(),
                       ),
