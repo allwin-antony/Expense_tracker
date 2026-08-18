@@ -50,11 +50,13 @@ class SmsReceiver : BroadcastReceiver() {
                 }
 
                 // 1. If Flutter UI is active, forward to live stream listener
-                smsListener?.invoke(smsData)
-
-                // 2. If SMS is a financial/bank transaction, trigger a background system notification
-                if (isFinancialSms(bodyText)) {
-                    showNotification(context, sender, bodyText)
+                if (smsListener != null) {
+                    smsListener?.invoke(smsData)
+                } else {
+                    // 2. Only trigger background notification if app is closed/backgrounded AND it's a genuine transaction
+                    if (isFinancialSms(bodyText)) {
+                        showNotification(context, sender, bodyText)
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -73,12 +75,34 @@ class SmsReceiver : BroadcastReceiver() {
 
     private fun isFinancialSms(body: String): Boolean {
         val text = body.lowercase()
-        return text.contains("debited") || text.contains("credited") ||
-               text.contains("spent") || text.contains("transferred") ||
-               text.contains("paid") || text.contains("a/c") ||
-               text.contains("vpa") || text.contains("upi") ||
-               text.contains("rs.") || text.contains("inr") ||
-               text.contains("bank") || text.contains("avbl bal")
+
+        // 1. Reject OTPs, verification codes, and security messages
+        if (text.contains("otp") || text.contains("verification code") ||
+            text.contains("one time password") || text.contains("do not share") ||
+            text.contains("secret code") || text.contains("login code")) {
+            return false
+        }
+
+        // 2. Reject promotional loan offers, marketing ads, and spam
+        if (text.contains("apply") || text.contains("loan") || text.contains("offer") ||
+            text.contains("click ") || text.contains("congratulations") || text.contains("pre-approved") ||
+            text.contains("pre approved") || text.contains("discount") || text.contains("cashback upto") ||
+            text.contains("lowest interest") || text.contains("check emi")) {
+            return false
+        }
+
+        // 3. Must contain an explicit currency/amount indicator (Rs., INR, ₹, $, £, €)
+        val hasAmount = Regex("""(?:rs\.?|inr|₹|\$|£|€)\s*[\d,]+(?:\.\d{1,2})?""", RegexOption.IGNORE_CASE).containsMatchIn(body)
+        if (!hasAmount) return false
+
+        // 4. Must contain a genuine debit or credit transaction action keyword
+        val hasTransactionVerb = text.contains("debited") || text.contains("credited") ||
+                text.contains("spent") || text.contains("transferred") ||
+                text.contains("deducted") || text.contains("withdrawn") ||
+                text.contains("received") || text.contains("sent rs") ||
+                text.contains("paid to") || text.contains("charged")
+
+        return hasTransactionVerb
     }
 
     private fun showNotification(context: Context, sender: String, body: String) {
