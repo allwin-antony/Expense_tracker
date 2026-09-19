@@ -77,7 +77,9 @@ class FinancialRegexPatterns {
 
   // Account / Card / VPA references
   static final RegExp accountRegex = RegExp(
-    r'(?:(?:a/c|acct|account|card|vpa)\s*(?:no\.?|ending(?:\s*with)?)?\s*[:\-]?\s*([xX*]+[\d]{3,4}|[a-zA-Z0-9.\-_]+@(?:upi|[a-zA-Z0-9]+)|[\d]{4}))',
+    r'(?:(?:a/c|acct|account|card|vpa)\s*(?:no\.?|ending(?:\s*with)?)?\s*[:\-]?\s*([xX*]+[\d]{3,4}|[a-zA-Z0-9.\-_]+@(?:upi|[a-zA-Z0-9]+)|[\d]{3,4}\b))|'
+    r'(?:[xX*]{2,}[\d]{3,4}\b)|'
+    r'\b((?:HDFC|SBI|ICICI|AXIS|KOTAK|PNB|BOB)\s*([xX*]*[\d]{3,4}))\b',
     caseSensitive: false,
   );
 
@@ -89,17 +91,22 @@ class FinancialRegexPatterns {
 
   // UPI Reference / UTR / Txn ID
   static final RegExp refIdRegex = RegExp(
-    r'(?:(?:UPI\s*Ref(?:\s*no)?|UTR|Txn\s*ID|Ref\s*no|Reference\s*No)\s*[:\-]?\s*([0-9a-zA-Z]{6,16}))',
+    r'(?:(?:UPI\s*Ref(?:\s*no)?|UTR|Txn\s*ID|Txn\s*no|Ref\s*no|Reference\s*No|IMPS|NEFT|RTGS|Ref(?:\.)?)\s*[:\-]?\s*([0-9a-zA-Z]{6,20}))|'
+    r'\b(\d{12})\b|'
+    r'(?:^|\s)(?:UPI\/|IMPS\/|NEFT\/|RTGS\/)([0-9a-zA-Z]{6,20})',
     caseSensitive: false,
   );
 
   // Merchant extraction patterns
   static final List<RegExp> merchantPatterns = [
-    RegExp(r'(?:to|at|towards)\s+([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal|upi|from|a/c|thru|dated|worth)|[\.\,\;]|$)', caseSensitive: false),
-    RegExp(r'(?:info\s*[:\-])\s*([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:info\s*[:\-])\s*([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
     RegExp(r'(?:VPA\s+)([a-zA-Z0-9.\-_]+@[a-zA-Z]+)', caseSensitive: false),
-    RegExp(r'(?:for\s+)([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
-    RegExp(r'(?:paid\s+to\s+)([A-Za-z0-9\s._\-&@]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:paid\s+to\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:received\s+from\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal|to\s+a/c)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:merchant\s*[:\-]\s*)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:pur(?:chase)?\s+at\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:to|at|towards|by|for)\s+([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal|upi|from|a/c|thru|dated|worth|is\s+credited)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:debited\s+for\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
   ];
 
   /// Validates whether the sender is an official TRAI alphanumeric header and not a personal phone number
