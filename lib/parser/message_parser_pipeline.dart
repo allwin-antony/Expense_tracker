@@ -196,7 +196,7 @@ class MessageParserPipeline {
     final accMatch = FinancialRegexPatterns.accountRegex.firstMatch(cleanText);
 
     final bankName = bankMatch?.group(1)?.toUpperCase();
-    final accNumber = accMatch?.group(1);
+    final accNumber = accMatch?.group(1) ?? accMatch?.group(2) ?? accMatch?.group(3);
 
     if (bankName != null && accNumber != null) {
       accountRef = '$bankName A/c $accNumber';
@@ -220,7 +220,7 @@ class MessageParserPipeline {
 
     // 5. Extract Reference / UTR
     final refMatch = FinancialRegexPatterns.refIdRegex.firstMatch(cleanText);
-    final refId = refMatch?.group(1);
+    final refId = refMatch?.group(1) ?? refMatch?.group(2) ?? refMatch?.group(3);
 
     // 6. Extract Merchant / Payee
     String rawMerchant = '';
