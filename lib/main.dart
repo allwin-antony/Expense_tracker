@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'services/app_preferences_service.dart';
+import 'models/category.dart';
 import 'parser/ml/fasttext_engine.dart';
 import 'parser/merchant_categorizer.dart';
 import 'screens/main_screen.dart';
@@ -20,6 +21,10 @@ void main() async {
   // Load custom user merchant categorization rules
   final customRules = await DatabaseService.instance.getAllCustomMerchantRules();
   MerchantCategorizer.loadUserRules(customRules);
+
+  // Load custom categories
+  final customCategories = await DatabaseService.instance.getAllCustomCategories();
+  Category.loadCustomCategories(customCategories);
 
   // Initialize interactive notification service
   await NotificationService.instance.initialize();

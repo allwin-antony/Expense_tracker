@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class Category {
-  static const List<String> expenseCategories = [
+  static List<String> expenseCategories = [
     'Food & Dining',
     'Shopping',
     'Transportation',
@@ -16,7 +16,7 @@ class Category {
     'Other Expense',
   ];
 
-  static const List<String> incomeCategories = [
+  static List<String> incomeCategories = [
     'Salary',
     'Freelance / Business',
     'Investment Return',
@@ -31,7 +31,7 @@ class Category {
         ...incomeCategories,
       ];
 
-  static const Map<String, String> categoryIcons = {
+  static Map<String, String> categoryIcons = {
     // Expense categories
     'Food & Dining': '🍽️',
     'Groceries': '🛒',
@@ -56,7 +56,7 @@ class Category {
     'Other Income': '💵',
   };
 
-  static const Map<String, IconData> categoryMaterialIcons = {
+  static Map<String, IconData> categoryMaterialIcons = {
     // Expense categories
     'Food & Dining': Icons.restaurant_rounded,
     'Groceries': Icons.shopping_cart_rounded,
@@ -81,7 +81,7 @@ class Category {
     'Other Income': Icons.savings_rounded,
   };
 
-  static const Map<String, Color> categoryColors = {
+  static Map<String, Color> categoryColors = {
     'Food & Dining': Color(0xFFFF7043),
     'Groceries': Color(0xFF10B981),
     'Shopping': Color(0xFF8B5CF6),
@@ -161,5 +161,73 @@ class Category {
         ],
       ),
     );
+  }
+
+  /// Registry of allowed custom icons
+  static const Map<String, IconData> iconRegistry = {
+    'restaurant': Icons.restaurant_rounded,
+    'shopping_cart': Icons.shopping_cart_rounded,
+    'shopping_bag': Icons.shopping_bag_rounded,
+    'car': Icons.directions_car_rounded,
+    'receipt': Icons.receipt_long_rounded,
+    'movie': Icons.movie_filter_rounded,
+    'medical': Icons.medical_services_rounded,
+    'school': Icons.school_rounded,
+    'flight': Icons.flight_takeoff_rounded,
+    'trending_up': Icons.trending_up_rounded,
+    'spa': Icons.spa_rounded,
+    'payments': Icons.payments_rounded,
+    'work': Icons.work_rounded,
+    'laptop': Icons.laptop_mac_rounded,
+    'wallet': Icons.account_balance_wallet_rounded,
+    'stars': Icons.stars_rounded,
+    'refund': Icons.replay_circle_filled_rounded,
+    'volunteer': Icons.volunteer_activism_rounded,
+    'savings': Icons.savings_rounded,
+    'home': Icons.home_rounded,
+    'pets': Icons.pets_rounded,
+    'fitness': Icons.fitness_center_rounded,
+    'child_care': Icons.child_care_rounded,
+    'build': Icons.build_rounded,
+    'cafe': Icons.local_cafe_rounded,
+    'esports': Icons.sports_esports_rounded,
+  };
+
+  /// Loads custom categories from the database into the in-memory maps/lists
+  static void loadCustomCategories(List<Map<String, dynamic>> customCategories) {
+    for (final custom in customCategories) {
+      final name = custom['name'] as String;
+      final type = custom['type'] as String;
+      final iconCode = custom['icon_code'] as String;
+      final colorValue = custom['color_value'] as int;
+
+      if (type == 'expense' && !expenseCategories.contains(name)) {
+        expenseCategories.add(name);
+      } else if (type == 'income' && !incomeCategories.contains(name)) {
+        incomeCategories.add(name);
+      }
+
+      categoryIcons[name] = '🏷️'; // Default fallback emoji for custom categories
+      categoryMaterialIcons[name] = iconRegistry[iconCode] ?? Icons.category_rounded;
+      categoryColors[name] = Color(colorValue);
+    }
+  }
+
+  /// Adds a custom category to the in-memory maps/lists at runtime
+  static void addCustomCategory({
+    required String name,
+    required String type,
+    required IconData icon,
+    required Color color,
+  }) {
+    if (type == 'expense' && !expenseCategories.contains(name)) {
+      expenseCategories.add(name);
+    } else if (type == 'income' && !incomeCategories.contains(name)) {
+      incomeCategories.add(name);
+    }
+
+    categoryIcons[name] = '🏷️';
+    categoryMaterialIcons[name] = icon;
+    categoryColors[name] = color;
   }
 }
