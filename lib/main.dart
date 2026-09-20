@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'services/database_service.dart';
 import 'services/notification_service.dart';
 import 'services/app_preferences_service.dart';
+import 'services/sms_sync_service.dart';
 import 'models/category.dart';
 import 'parser/ml/fasttext_engine.dart';
 import 'parser/merchant_categorizer.dart';

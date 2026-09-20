@@ -4,6 +4,7 @@ import '../models/payment.dart';
 import '../services/app_preferences_service.dart';
 import '../services/biometric_auth_service.dart';
 import '../services/database_service.dart';
+import '../services/sms_sync_service.dart';
 import '../widgets/add_payment_dialog.dart';
 import 'home_screen.dart';
 import 'history_screen.dart';
@@ -35,6 +36,34 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     if (AppPreferencesService.instance.isBiometricEnabled) {
       _isLocked = true;
+    }
+    
+    // Defer the queue processing until after the first frame is rendered
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_isLocked) {
+        _processPendingQueue();
+      }
+    });
+  }
+
+  Future<void> _processPendingQueue() async {
+    int count = 0;
+    await SmsSyncService.instance.processPendingSmsQueue(
+      onPaymentCaptured: (payment) {
+        count++;
+      },
+    );
+
+    if (count > 0 && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚡ Auto-synced $count new transaction${count > 1 ? 's' : ''} from background.'),
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      // Force refresh of the home screen to show new data
+      setState(() {});
+      _homeKey.currentState?.scrollToTopAndRefresh();
     }
   }
 
@@ -123,6 +152,7 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
           setState(() {
             _isLocked = false;
           });
+          _processPendingQueue();
         },
       );
     }

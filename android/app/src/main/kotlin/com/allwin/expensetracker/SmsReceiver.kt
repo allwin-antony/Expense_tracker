@@ -10,11 +10,17 @@ import android.os.Build
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
+import org.json.JSONObject
 
 class SmsReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "SmsReceiver"
         private const val CHANNEL_ID = "expense_tracker_sms_channel"
+        private const val PREFS_NAME = "ExpenseTrackerPrefs"
+        private const val QUEUE_KEY = "pending_sms_queue"
+        private const val MAX_QUEUE_SIZE = 100 // Prevent bloat
+
         var smsListener: ((Map<String, Any?>) -> Unit)? = null
     }
 
@@ -49,18 +55,55 @@ class SmsReceiver : BroadcastReceiver() {
                     return
                 }
 
-                // 1. If Flutter UI is active, forward to live stream listener
-                if (smsListener != null) {
-                    smsListener?.invoke(smsData)
-                } else {
-                    // 2. Only trigger background notification if app is closed/backgrounded AND it's a genuine transaction
-                    if (isFinancialSms(bodyText)) {
+                // Always add valid financial SMS to the SharedPreferences queue,
+                // so that even if the app is open but misses it, or if it's closed, we safely have a copy.
+                if (isFinancialSms(bodyText)) {
+                    queueSms(context, sender, bodyText, timestamp)
+
+                    // 1. If Flutter UI is active, forward to live stream listener
+                    if (smsListener != null) {
+                        smsListener?.invoke(smsData)
+                    } else {
+                        // 2. Trigger background notification if app is closed/backgrounded
                         showNotification(context, sender, bodyText)
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing incoming SMS in SmsReceiver", e)
+        }
+    }
+
+    private fun queueSms(context: Context, sender: String, body: String, timestamp: Long) {
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val queueString = prefs.getString(QUEUE_KEY, "[]")
+            val queue = JSONArray(queueString)
+
+            val smsObj = JSONObject().apply {
+                put("sender", sender)
+                put("body", body)
+                put("timestamp", timestamp)
+            }
+
+            queue.put(smsObj)
+
+            // Enforce max size to prevent SharedPreferences from growing infinitely
+            val trimmedQueue = if (queue.length() > MAX_QUEUE_SIZE) {
+                val newQueue = JSONArray()
+                // Keep the latest MAX_QUEUE_SIZE elements
+                for (i in (queue.length() - MAX_QUEUE_SIZE) until queue.length()) {
+                    newQueue.put(queue.get(i))
+                }
+                newQueue
+            } else {
+                queue
+            }
+
+            prefs.edit().putString(QUEUE_KEY, trimmedQueue.toString()).apply()
+            Log.d(TAG, "Queued SMS in SharedPreferences. Queue size: ${trimmedQueue.length()}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue SMS", e)
         }
     }
 
