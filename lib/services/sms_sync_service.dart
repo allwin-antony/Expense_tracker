@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -138,6 +139,8 @@ class SmsSyncService {
 
   static const EventChannel _smsEventChannel =
       EventChannel('com.allwin.expensetracker/sms_stream');
+  static const MethodChannel _smsMethodChannel = 
+      MethodChannel('com.allwin.expensetracker/sms_queue');
   StreamSubscription? _liveSmsSubscription;
 
   /// Request SMS read and receive permissions gracefully
@@ -407,6 +410,80 @@ class SmsSyncService {
       );
     } catch (e) {
       debugPrint('Could not initialize SMS EventChannel: $e');
+    }
+  }
+
+  /// Processes any SMS messages that were queued natively in the background while the Flutter app was asleep
+  Future<void> processPendingSmsQueue({Function(Payment)? onPaymentCaptured}) async {
+    try {
+      final String? queueString = await _smsMethodChannel.invokeMethod('getAndClearPendingSms');
+      if (queueString == null || queueString == '[]') return;
+
+      final List<dynamic> queue = jsonDecode(queueString);
+      if (queue.isEmpty) return;
+
+      debugPrint('Processing ${queue.length} pending SMS from background queue...');
+
+      // Convert queue items to the format expected by our batch parser
+      final List<Map<String, dynamic>> rawList = [];
+      for (final item in queue) {
+        if (item is Map) {
+          rawList.add({
+            'body': item['body'] ?? '',
+            'timestamp': item['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+            'sender': item['sender'] ?? '',
+          });
+        }
+      }
+
+      // Parse the queue in the background isolate
+      final List<Map<String, dynamic>> parsedMaps = await compute(
+        _parseSmsBatch,
+        rawList,
+      );
+
+      if (parsedMaps.isEmpty) return;
+
+      final existingPayments = await DatabaseService.instance.getAllPayments();
+      final existingRawMessages = existingPayments
+          .map((p) => p.rawMessage?.trim())
+          .where((m) => m != null && m.isNotEmpty)
+          .toSet();
+
+      final List<Payment> newPaymentsToInsert = [];
+
+      for (final map in parsedMaps) {
+        final payment = Payment.fromMap(map);
+        final raw = payment.rawMessage?.trim();
+
+        // Deduplication Check
+        bool isDuplicate = false;
+        if (raw != null && existingRawMessages.contains(raw)) {
+          isDuplicate = true;
+        } else {
+          isDuplicate = existingPayments.any((existing) {
+            final diff = existing.date.difference(payment.date).inSeconds.abs();
+            return diff < 120 &&
+                (existing.amount - payment.amount).abs() < 0.01 &&
+                existing.type == payment.type;
+          });
+        }
+
+        if (!isDuplicate) {
+          newPaymentsToInsert.add(payment);
+          existingPayments.add(payment);
+          if (raw != null) existingRawMessages.add(raw);
+          
+          onPaymentCaptured?.call(payment);
+        }
+      }
+
+      if (newPaymentsToInsert.isNotEmpty) {
+        await DatabaseService.instance.addPaymentsBatch(newPaymentsToInsert);
+        debugPrint('Added ${newPaymentsToInsert.length} new payments from pending SMS queue.');
+      }
+    } catch (e) {
+      debugPrint('Error processing pending SMS queue: $e');
     }
   }
 

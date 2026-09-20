@@ -10,11 +10,17 @@ import android.os.Build
 import android.provider.Telephony
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import org.json.JSONArray
+import org.json.JSONObject
 
 class SmsReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "SmsReceiver"
         private const val CHANNEL_ID = "expense_tracker_sms_channel"
+        private const val PREFS_NAME = "ExpenseTrackerPrefs"
+        private const val QUEUE_KEY = "pending_sms_queue"
+        private const val MAX_QUEUE_SIZE = 100 // Prevent bloat
+
         var smsListener: ((Map<String, Any?>) -> Unit)? = null
     }
 
@@ -49,18 +55,55 @@ class SmsReceiver : BroadcastReceiver() {
                     return
                 }
 
-                // 1. If Flutter UI is active, forward to live stream listener
-                if (smsListener != null) {
-                    smsListener?.invoke(smsData)
-                } else {
-                    // 2. Only trigger background notification if app is closed/backgrounded AND it's a genuine transaction
-                    if (isFinancialSms(bodyText)) {
+                // Always add valid financial SMS to the SharedPreferences queue,
+                // so that even if the app is open but misses it, or if it's closed, we safely have a copy.
+                if (isFinancialSms(bodyText)) {
+                    queueSms(context, sender, bodyText, timestamp)
+
+                    // 1. If Flutter UI is active, forward to live stream listener
+                    if (smsListener != null) {
+                        smsListener?.invoke(smsData)
+                    } else {
+                        // 2. Trigger background notification if app is closed/backgrounded
                         showNotification(context, sender, bodyText)
                     }
                 }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error processing incoming SMS in SmsReceiver", e)
+        }
+    }
+
+    private fun queueSms(context: Context, sender: String, body: String, timestamp: Long) {
+        try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val queueString = prefs.getString(QUEUE_KEY, "[]")
+            val queue = JSONArray(queueString)
+
+            val smsObj = JSONObject().apply {
+                put("sender", sender)
+                put("body", body)
+                put("timestamp", timestamp)
+            }
+
+            queue.put(smsObj)
+
+            // Enforce max size to prevent SharedPreferences from growing infinitely
+            val trimmedQueue = if (queue.length() > MAX_QUEUE_SIZE) {
+                val newQueue = JSONArray()
+                // Keep the latest MAX_QUEUE_SIZE elements
+                for (i in (queue.length() - MAX_QUEUE_SIZE) until queue.length()) {
+                    newQueue.put(queue.get(i))
+                }
+                newQueue
+            } else {
+                queue
+            }
+
+            prefs.edit().putString(QUEUE_KEY, trimmedQueue.toString()).apply()
+            Log.d(TAG, "Queued SMS in SharedPreferences. Queue size: ${trimmedQueue.length()}")
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to queue SMS", e)
         }
     }
 
@@ -91,7 +134,7 @@ class SmsReceiver : BroadcastReceiver() {
         if (scamRegex.containsMatchIn(trimmed)) return false
 
         // 4. Filter out promotional, loan marketing, and cashback spam ads
-        val promotionalRegex = Regex("""\b(?:pre[\s\-]?approved|pre[\s\-]?qualified|instant\s*loan|loan\s*on\s*(?:card|credit\s*card)|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|check\s*emis?|lowest\s*interest\s*rates?|congratulations|good\s*news|hurry|limited\s*(?:period\s*)?offer|offer\s*valid|win\s*(?:upto|up\s*to)|chance\s*to\s*win|lucky\s*draw|coupon\s*code|voucher|flat\s*(?:off|discount|rs)|upto\s*(?:rs\.?|inr|₹)|\bup\s*to\s*(?:rs\.?|inr|₹)|credit\s*card\s*offer|limit\s*increase|enhanced\s*limit|approved\s*limit|eligible\s*for|when\s*you\s*avail|when\s*you\s*apply|when\s*you\s*order|on\s*your\s*next\s*order|cashback\s*(?:upto|up\s*to|of\s*up\s*to|worth)|reward\s*points\s*worth|is\s*due\s*on|due\s*date\s*is|payment\s*is\s*due|minimum\s*(?:amount\s*)?due|pay\s*before|get\s*(?:rs\.?|inr|₹)\s*[\d,]+\s*off|save\s*(?:rs\.?|inr|₹))\b""", RegexOption.IGNORE_CASE)
+        val promotionalRegex = Regex("""\b(?:pre[\s\-]?approved|pre[\s\-]?qualified|almost\s*there|securely\s*saved|complete\s*to\s*create|instant\s*loan|loan\s*on\s*(?:card|credit\s*card)|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|check\s*emis?|lowest\s*interest\s*rates?|congratulations|good\s*news|hurry|limited\s*(?:period\s*)?offer|offer\s*valid|win\s*(?:upto|up\s*to)|chance\s*to\s*win|lucky\s*draw|coupon\s*code|voucher|flat\s*(?:off|discount|rs)|upto\s*(?:rs\.?|inr|₹)|\bup\s*to\s*(?:rs\.?|inr|₹)|credit\s*card\s*offer|limit\s*increase|enhanced\s*limit|approved\s*limit|eligible\s*for|when\s*you\s*avail|when\s*you\s*apply|when\s*you\s*order|on\s*your\s*next\s*order|cashback\s*(?:upto|up\s*to|of\s*up\s*to|worth)|reward\s*points\s*worth|is\s*due\s*on|due\s*date\s*is|payment\s*is\s*due|minimum\s*(?:amount\s*)?due|pay\s*before|get\s*(?:rs\.?|inr|₹)\s*[\d,]+\s*off|save\s*(?:rs\.?|inr|₹))\b""", RegexOption.IGNORE_CASE)
         if (promotionalRegex.containsMatchIn(trimmed)) return false
 
         // 5. Must contain explicit debit or credit transaction intent

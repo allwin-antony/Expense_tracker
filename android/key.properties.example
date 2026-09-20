@@ -1,0 +1,6 @@
+# Example key.properties template
+# Place your actual credentials in android/key.properties (do not commit key.properties to git)
+storePassword=expense_tracker_secure_key
+keyPassword=expense_tracker_secure_key
+keyAlias=upload
+storeFile=upload-keystore.jks

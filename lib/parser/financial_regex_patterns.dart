@@ -7,18 +7,7 @@ class FinancialRegexPatterns {
 
   // Regex to reject promotional, loan offers, credit line ads, cashback offers, and marketing spam
   static final RegExp promotionalFilterRegex = RegExp(
-    r'\b(?:'
-    r'pre[\s\-]?approved|pre[\s\-]?qualified|instant\s*loan|loan\s*on\s*(?:card|credit\s*card)|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|'
-    r'loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|check\s*emis?|lowest\s*interest\s*rates?|'
-    r'congratulations|good\s*news|hurry|limited\s*(?:period\s*)?offer|offer\s*valid|'
-    r'win\s*(?:upto|up\s*to)|chance\s*to\s*win|lucky\s*draw|coupon\s*code|voucher|'
-    r'flat\s*(?:off|discount|rs)|upto\s*(?:rs\.?|inr|₹)|\bup\s*to\s*(?:rs\.?|inr|₹)|'
-    r'credit\s*card\s*offer|limit\s*increase|enhanced\s*limit|approved\s*limit|eligible\s*for|'
-    r'when\s*you\s*avail|when\s*you\s*apply|when\s*you\s*order|on\s*your\s*next\s*order|'
-    r'cashback\s*(?:upto|up\s*to|of\s*up\s*to|worth)|reward\s*points\s*worth|'
-    r'is\s*due\s*on|due\s*date\s*is|payment\s*is\s*due|minimum\s*(?:amount\s*)?due|pay\s*before|'
-    r'get\s*(?:rs\.?|inr|₹)\s*[\d,]+\s*off|save\s*(?:rs\.?|inr|₹)'
-    r')\b',
+    r'\b(?:pre[\s\-]?approved|pre[\s\-]?qualified|almost\s*there|securely\s*saved|complete\s*to\s*create|instant\s*loan|loan\s*on\s*(?:card|credit\s*card)|(?:apply|avail|get|instant|eligible\s*for)\s*(?:a\s*)?(?:personal|home|business|gold)\s*loan|loan\s*(?:of|upto|up\s*to)|apply\s*(?:now|for)|avail\s*now|claim\s*now|click\s*(?:here|link|to\s*avail)|check\s*emis?|lowest\s*interest\s*rates?|congratulations|good\s*news|hurry|limited\s*(?:period\s*)?offer|offer\s*valid|win\s*(?:upto|up\s*to)|chance\s*to\s*win|lucky\s*draw|coupon\s*code|voucher|flat\s*(?:off|discount|rs)|upto\s*(?:rs\.?|inr|₹)|\bup\s*to\s*(?:rs\.?|inr|₹)|credit\s*card\s*offer|limit\s*increase|enhanced\s*limit|approved\s*limit|eligible\s*for|when\s*you\s*avail|when\s*you\s*apply|when\s*you\s*order|on\s*your\s*next\s*order|cashback\s*(?:upto|up\s*to|of\s*up\s*to|worth)|reward\s*points\s*worth|is\s*due\s*on|due\s*date\s*is|payment\s*is\s*due|minimum\s*(?:amount\s*)?due|pay\s*before|get\s*(?:rs\.?|inr|₹)\s*[\d,]+\s*off|save\s*(?:rs\.?|inr|₹))\b',
     caseSensitive: false,
   );
 
