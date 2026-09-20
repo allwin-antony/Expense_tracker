@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/category.dart';
 import '../models/payment.dart';
+import 'add_category_dialog.dart';
 
 class CategoryPickerSheet extends StatefulWidget {
   final String selectedCategory;
@@ -138,12 +139,38 @@ class _CategoryPickerSheetState extends State<CategoryPickerSheet> {
                       ),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close_rounded, size: 20),
-                    onPressed: () => Navigator.pop(context),
-                    style: IconButton.styleFrom(
-                      backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
-                    ),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: () async {
+                          final newCategory = await AddCategoryDialog.show(
+                            context,
+                            initialType: _selectedType,
+                            lockType: widget.lockType,
+                          );
+                          if (newCategory != null) {
+                            setState(() {
+                              _searchQuery = '';
+                              _searchController.clear();
+                            });
+                          }
+                        },
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                        label: const Text('New'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: theme.colorScheme.primary,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                        style: IconButton.styleFrom(
+                          backgroundColor: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

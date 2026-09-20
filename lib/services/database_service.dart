@@ -63,7 +63,7 @@ class DatabaseService {
 
     return await openDatabase(
       databasePath,
-      version: 5,
+      version: 6,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE payments(
@@ -89,6 +89,15 @@ class DatabaseService {
             merchant_pattern TEXT UNIQUE NOT NULL,
             category TEXT NOT NULL,
             created_at TEXT NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE custom_categories(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            type TEXT NOT NULL,
+            icon_code TEXT NOT NULL,
+            color_value INTEGER NOT NULL
           )
         ''');
       },
@@ -131,6 +140,19 @@ class DatabaseService {
                 merchant_pattern TEXT UNIQUE NOT NULL,
                 category TEXT NOT NULL,
                 created_at TEXT NOT NULL
+              )
+            ''');
+          } catch (_) {}
+        }
+        if (oldVersion < 6) {
+          try {
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS custom_categories(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL UNIQUE,
+                type TEXT NOT NULL,
+                icon_code TEXT NOT NULL,
+                color_value INTEGER NOT NULL
               )
             ''');
           } catch (_) {}
@@ -540,5 +562,44 @@ class DatabaseService {
       return list.sublist(0, limit);
     }
     return list;
+  }
+
+  /// Add a custom category
+  Future<int> addCustomCategory({
+    required String name,
+    required String type,
+    required String iconCode,
+    required int colorValue,
+  }) async {
+    final db = await database;
+    final id = await db.insert(
+      'custom_categories',
+      {
+        'name': name,
+        'type': type,
+        'icon_code': iconCode,
+        'color_value': colorValue,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+    notifyDataChanged();
+    return id;
+  }
+
+  /// Get all custom categories
+  Future<List<Map<String, dynamic>>> getAllCustomCategories() async {
+    final db = await database;
+    return await db.query('custom_categories');
+  }
+
+  /// Delete a custom category
+  Future<void> deleteCustomCategory(String name) async {
+    final db = await database;
+    await db.delete(
+      'custom_categories',
+      where: 'name = ?',
+      whereArgs: [name],
+    );
+    notifyDataChanged();
   }
 }
