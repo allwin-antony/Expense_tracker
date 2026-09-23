@@ -1,26 +1,91 @@
-# 💸 Expense Tracker (v2.0.1 - Flutter + On-Device FastText ML)
+# 💸 Expense Tracker
 
-A modern, privacy-first, intelligent Android application for tracking personal finances tailored for Indian transactions & UPI parsing. Featuring real-time automated SMS sync, **pure Dart quantized on-device FastText machine learning classification**, **native 7-layer Kotlin background SMS defense shield**, custom user merchant auto-learning, adaptive floating `AppToast` notifications, privacy mode, merchant analytics, interactive charts, and local SQLite data persistence.
+**Privacy-first, on-device ML-powered expense tracking for Indian financial SMS (UPI • Cards • Banks)**
+
+[![Flutter](https://img.shields.io/badge/Flutter-%5E3.8.1-02569B?logo=flutter)](https://docs.flutter.dev)
+[![Release](https://img.shields.io/badge/release-v2.0.1%2B4-green)](https://github.com/allwin-antony/Expense_tracker/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Android%2021%2B-brightgreen?logo=android)](https://developer.android.com)
+[![ML](https://img.shields.io/badge/ML-FastText%20%28pure%20Dart%29-orange)](#-on-device-fasttext-ml-engine)
+[![Offline](https://img.shields.io/badge/cloud-zero%20dependencies-blue)](#-privacy--architecture)
+[![Tests](https://img.shields.io/badge/tests-202%20passed-brightgreen)](#-testing)
+
+Expense Tracker is a modern Android app that reads financial SMS, classifies them with a **quantized on-device FastText model written entirely in pure Dart**, extracts merchant, amount, and account details, and turns them into categorized transactions — with **zero cloud calls and zero data leaving the device**.
 
 ---
 
-## ✨ Features
+## 📑 Table of Contents
 
-- 🤖 **Quantized On-Device FastText ML Classifier**: High-speed (< 0.3ms latency) semantic SMS classification built natively in pure Dart. Features uint8 Base64 quantization (**171.5 KB model size** — 83.5% size reduction). Automatically filters out promotional loan marketing, spam, and OTP security codes while isolating genuine financial transactions.
-- 🛡️ **Native Android 7-Layer SMS Defense Shield (`SmsReceiver.kt`)**: Background Kotlin receiver with 100% regex pipeline parity. Automatically suppresses false background notifications by filtering out OTPs, promotional loan ads, phishing scams, and personal numbers in under 0.1ms without waking up the heavy Flutter engine.
-- 🍞 **Adaptive Floating `AppToast` Notification Engine**: Theme-adaptive (Light & Dark mode) floating toast banners with smooth 250ms fade/slide transitions, strict auto-dismissal timers, and interactive **`UNDO`** pill buttons.
-- 🔔 **Interactive Heads-Up Notifications**: Live SMS auto-capture alerts featuring **`🔕 Exclude`** and **`🗑️ Delete`** actions with real-time UI synchronization across the app without requiring manual pull-to-refresh.
-- 📅 **End-of-List History Sync Prompt**: Automatically detects when recorded transaction history is limited (e.g. 1–3 months) and prompts users to sync broader timeframes (*Last 90 Days, This Year, or All Time*) with a single tap.
-- 👁️ **Public Privacy Mode**: 1-tap Eye toggle on Home, Statistics, and History screens to obscure summary balance figures (`+₹ ••••••` / `-₹ ••••••`) in public environments.
-- 🏦 **Comprehensive RBI Banks & NPCI Handles Dataset**: Trained with official lists of 712+ Indian Banks (Public, Private, Small Finance, Co-operative) and 92+ NPCI UPI/AutoPay handles (`@ybl`, `@okaxis`, `@oksbi`, `@okhdfcbank`, `@apl`, `@fkaxis`, `@jupiteraxis`, `@wasbi`, etc.).
-- 🛍️ **Custom User Merchant Rules (Dynamic Learning Engine)**: Remembers and auto-applies custom merchant categorizations (e.g. mapping local store *"Sharma Dhaba"* $\rightarrow$ *"Food & Dining"*) in local SQLite storage. User custom rules take 100% precedence in both manual entries and automated SMS syncs.
-- 🏷️ **User-Defined Custom Categories**: Create personalized expense and income categories with a curated selection of vibrant colors and material icons. All custom categories are securely stored in the local SQLite database and persist across sessions.
-- 📊 **Interactive Analytics & Merchant Rankings**: Powered by `fl_chart`. Toggle between **By Category** pie charts and **By Merchant** top spending rankings with Gold (🥇 #1), Silver (🥈 #2), and Bronze (🥉 #3) badges, order frequencies, and spending percentages.
-- 📆 **Redesigned Date Range Picker & Explicit Headers**: Detailed Date/Month timestamps (`DateFormat('d MMM, h:mm a')`) and date-tagged group headers (`Today • 14 Aug`) for full clarity while scrolling.
-- 📩 **Intelligent Financial SMS Parsing (Multi-Sentence Scoper)**: Powered by a multi-tier regex pipeline with **ClauseSemanticScoper** that splits sentences and scopes extraction strictly to transaction event clauses, preventing balance-amount confusion. Handles complex banking SMS formats (HDFC, SBI, ICICI, Axis, EPFO, mutual funds, etc.).
-- 💱 **Multi-Currency Processing**: Supports **USD ($), GBP (£), and EUR (€)** transaction parsing for international subscriptions (AWS, Netflix US, OpenAI) and foreign travel.
-- 🔒 **100% Offline & Privacy-Centric**: Zero cloud servers, zero remote APIs, and no native C++/Python binaries. All processing runs locally on device.
-- 📱 **Multi-Target Architecture Release APKs**: Optimized builds split per ABI target (`arm64-v8a`, `armeabi-v7a`, `x86_64`) with Java 11 desugaring and icon tree-shaking.
+- [Why This Project](#-why-this-project)
+- [Key Features](#-key-features)
+- [Privacy & Architecture](#-privacy--architecture)
+- [System Architecture](#-system-architecture)
+- [On-Device FastText ML Engine](#-on-device-fasttext-ml-engine)
+- [Technology Stack](#-technology-stack)
+- [Getting Started](#-getting-started)
+- [Build & Release](#-build--release)
+- [Testing](#-testing)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+---
+
+## 🌟 Why This Project
+
+Expense tracking apps usually fail for one of two reasons: manual entry is tedious, or cloud-based auto-tracking compromises privacy. Expense Tracker solves both:
+
+- **No manual entry** — transactions are auto-captured from financial SMS (UPI, cards, net banking, EPFO, mutual funds).
+- **No privacy trade-off** — all parsing and ML inference happens on-device. There is no backend, no analytics SDK, no remote API.
+- **Indian-first** — trained and tested against Indian bank formats (HDFC, SBI, ICICI, Axis) and 92+ NPCI UPI handles, not just generic card-sms formats.
+
+---
+
+## 🔑 Key Features
+
+### 🤖 Intelligent Classification
+- **Quantized on-device FastText classifier** (pure Dart): classifies each SMS as `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, or `INFORMATIONAL` in **&lt; 0.3 ms** per message.
+- **171.5 KB model** — 83.5% smaller than the unquantized version via uint8 Base64 quantization.
+- Loan ads, phishing, and OTP codes are filtered out automatically, so you're only ever notified about real transactions.
+
+### 🛡️ Native 7-Layer SMS Defense Shield
+- A background Kotlin receiver (`SmsReceiver.kt`) with **100% regex-pipeline parity** to the Dart parser rejects spam *before* the Flutter engine even wakes up — **&lt; 0.1 ms** decision time.
+- Verified TRAI sender-header checks ensure only genuine financial alerts get through.
+
+### 🔔 Adaptive Notifications
+- Theme-aware floating **AppToast** banners with 250 ms fade/slide transitions and interactive **`UNDO`** pills.
+- Heads-up notifications with **`🔕 Exclude`** / **`🗑️ Delete`** actions, synced live to the UI without manual refresh.
+
+### 🧾 Deep Transaction Parsing
+- **Multi-tier regex pipeline** with a `ClauseSemanticScoper` that isolates extraction to the transaction clause — no more confusing your *balance* with the *transaction amount*.
+- **Multi-currency**: ₹, $, £, € — handles international subscriptions (AWS, Netflix, OpenAI) and travel spend.
+- **712+ RBI-recognized banks** and **92+ NPCI UPI/AutoPay handles** in the training dataset (`@ybl`, `@okaxis`, `@okhdfcbank`, `@apl`, `@jupiteraxis`, …).
+
+### 🛍️ Learns From You
+- **Custom merchant rules** — map *"Sharma Dhaba"* → *"Food & Dining"* once; the app auto-applies it forever, in both SMS syncs and manual entries. User rules take **100% precedence**.
+- **Custom categories** — create your own expense/income categories with colors and material icons, persisted in SQLite.
+
+### 📊 Analytics & UX
+- `fl_chart`-powered **pie charts by category** and **top-merchant rankings** with 🥇🥈🥉 badges, order frequency, and spending share.
+- **Public Privacy Mode** — 1-tap eye toggle to mask balances (`+₹ ••••••`) on Home, Statistics, and History.
+- **History sync prompts** — detects shallow history (1–3 months) and offers one-tap expansion to *Last 90 Days / This Year / All Time*.
+- Detailed timestamps (`d MMM, h:mm a`) and date-tagged headers (`Today • 14 Aug`).
+
+---
+
+## 🔒 Privacy & Architecture
+
+&gt; **Your money data never leaves your phone.**
+
+| Property | Guarantee |
+|---|---|
+| Cloud servers | ❌ None |
+| Remote APIs | ❌ None |
+| Native C++/Python binaries | ❌ None |
+| Third-party analytics | ❌ None |
+| Storage | 📁 Local SQLite (`sqflite`) only |
+| ML inference | 🧠 On-device, &lt; 0.3 ms per SMS |
+
+The entire pipeline — receipt, filtering, classification, parsing, categorization, storage — runs locally on the device.
 
 ---
 
@@ -28,114 +93,140 @@ A modern, privacy-first, intelligent Android application for tracking personal f
 
 ```mermaid
 flowchart TD
-    A[Incoming SMS Broadcast / Inbox Sync] --> B[Native SmsReceiver.kt - 7-Layer Kotlin Defense]
-    B -->|Filter Out OTPs / Promos / Scams / Personal Numbers| C[Reject Background Notification]
-    B -->|Valid Financial SMS| D[MessageParserPipeline]
-    
-    D --> E[FastTextEngine - Quantized On-Device ML]
-    E -->|Classifies Category| F{Semantic Intent}
-    
-    F -->|Genuine Transaction| G[AuthenticityValidator]
-    G --> H[FinancialRegexPatterns Extraction]
-    H --> I[MerchantCategorizer Engine]
-    I -->|Check SQLite User Rules| J{Custom Rule Found?}
-    
-    J -->|Yes| K[Apply User Category - 100% Confidence]
-    J -->|No| L[Apply Builtin Dictionary & ML Heuristics]
-    
-    K --> M[(Local SQLite Database)]
-    L --> M
-    
-    M --> N[Home Dashboard & Real-Time Sync]
-    M --> O[Transaction History Screen & End-of-List Sync Prompt]
-    M --> P[Statistics & Merchant Rankings]
+    A[Incoming SMS Broadcast / Inbox Sync] --&gt; B[Native SmsReceiver.kt&lt;br/&gt;7-Layer Kotlin Defense Shield]
+    B --&gt;|OTP / Promo / Scam / Personal| C[✗ Reject — No Notification]
+    B --&gt;|Valid Financial SMS| D[MessageParserPipeline]
+
+    D --&gt; E[FastTextEngine&lt;br/&gt;Quantized On-Device ML]
+    E --&gt;|Classifies Intent| F{Semantic Intent}
+
+    F --&gt;|Genuine Transaction| G[AuthenticityValidator]
+    G --&gt; H[FinancialRegexPatterns Extraction]
+    H --&gt; I[MerchantCategorizer Engine]
+    I --&gt;|Check SQLite User Rules| J{Custom Rule Found?}
+
+    J --&gt;|Yes| K[Apply User Category&lt;br/&gt;100% Confidence]
+    J --&gt;|No| L[Builtin Dictionary&lt;br/&gt;+ ML Heuristics]
+
+    K --&gt; M[(Local SQLite Database)]
+    L --&gt; M
+
+    M --&gt; N[Home Dashboard&lt;br/&gt;Real-Time Sync]
+    M --&gt; O[History + Sync Prompt]
+    M --&gt; P[Statistics & Merchant Rankings]
 ```
-
----
-
-## 🛠️ Technology Stack
-
-- **Framework**: [Flutter](pubspec.yaml) (SDK `^3.8.1`, Release `v2.0.1+4`)
-- **Language**: Dart & Kotlin
-- **Database**: `sqflite` (SQLite v5 schema with `custom_merchant_rules`)
-- **Charts & Visualizations**: `fl_chart`
-- **SMS Reading**: `flutter_sms_inbox` & `permission_handler`
-- **Notifications**: Custom `AppToast` overlay & `flutter_local_notifications`
-- **Machine Learning**: Custom pure-Dart **FastText** implementation (Subword n-gram hashing + SGD trained embeddings + uint8 Base64 quantization)
 
 ---
 
 ## 🧠 On-Device FastText ML Engine
 
-The project includes a pure Dart FastText model toolchain that runs without any Python, C++, or TensorFlow binaries.
+A **pure-Dart FastText implementation** — no Python, C++, or TensorFlow tooling required at inference or training time.
 
-### Model Specs
-- **Classes**: `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, `INFORMATIONAL`
-- **Feature Extraction**: 3-to-6 character subword n-grams with 32-bit FNV-1a hashing into 8,192 buckets.
-- **Quantization**: 8-bit unsigned integer Base64 quantization with scaling parameters (`embMin`, `embMax`).
-- **Model Size**: **`171.5 KB`** (reduced from `1.03 MB`).
-- **Inference Latency**: `< 0.3ms` per message.
+| Spec | Value |
+|---|---|
+| Classes | `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, `INFORMATIONAL` |
+| Feature extraction | 3–6 char subword n-grams, FNV-1a 32-bit hashing into 8,192 buckets |
+| Quantization | uint8 Base64 with `embMin` / `embMax` scaling |
+| Model size | **171.5 KB** (down from 1.03 MB — **–83.5%**) |
+| Inference latency | **&lt; 0.3 ms** per message |
+
+**Why FastText?** Subword n-grams make the model robust to merchant-name typos, concatenated UPI handles (`SHARMA.DHABA@ybl`), and unseen senders — exactly what real SMS traffic looks like.
 
 ---
 
-## 📦 Release APK Targets
+## 🛠️ Technology Stack
 
-Build production APKs for all target architectures:
-
-```bash
-flutter build apk --release --split-per-abi
-```
-
-- **ARM 64-bit (`arm64-v8a`)**: `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`
-- **ARM 32-bit (`armeabi-v7a`)**: `build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk`
-- **x86 64-bit (`x86_64`)**: `build/app/outputs/flutter-apk/app-x86_64-release.apk`
-- **Universal Release APK**: `build/app/outputs/flutter-apk/app-release.apk`
-- **App Bundle (`.aab`)**: `build/app/outputs/bundle/release/app-release.aab`
+| Layer | Technology |
+|---|---|
+| Framework | Flutter `^3.8.1` |
+| Languages | Dart & Kotlin |
+| Database | `sqflite` — SQLite v5 schema with `custom_merchant_rules` |
+| Charts | `fl_chart` |
+| SMS access | `flutter_sms_inbox` + `permission_handler` |
+| Notifications | Custom `AppToast` overlay + `flutter_local_notifications` |
+| ML | Custom pure-Dart FastText (subword hashing + SGD embeddings + uint8 quantization) |
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) (`>= 3.8.1`)
-- Android Studio / VS Code with Flutter extension
-- Android Device or Emulator (API level 21+)
 
-### Installation & Setup
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) `&gt;= 3.8.1`
+- Android Studio / VS Code with the Flutter extension
+- Android device or emulator (API 21+)
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/allwin-antony/Expense_tracker.git
-   cd Expense_tracker
-   ```
+### Setup
 
-2. **Install dependencies**:
-   ```bash
-   flutter pub get
-   ```
+```bash
+# 1. Clone
+git clone https://github.com/allwin-antony/Expense_tracker.git
+cd Expense_tracker
 
-3. **Run the application**:
-   ```bash
-   flutter run
-   ```
+# 2. Install dependencies
+flutter pub get
+
+# 3. Run
+flutter run
+```
+
+&gt; On first launch, grant **SMS permission** so the app can sync financial messages. Everything else is automatic.
+
+---
+
+## 📦 Build & Release
+
+```bash
+flutter build apk --release --split-per-abi
+```
+
+| Target | Output |
+|---|---|
+| ARM 64-bit (`arm64-v8a`) | `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` |
+| ARM 32-bit (`armeabi-v7a`) | `build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk` |
+| x86 64-bit (`x86_64`) | `build/app/outputs/flutter-apk/app-x86_64-release.apk` |
+| Universal APK | `build/app/outputs/flutter-apk/app-release.apk` |
+| App Bundle | `build/app/outputs/bundle/release/app-release.aab` |
+
+Release builds use Java 11 desugaring and icon tree-shaking for smaller binaries.
 
 ---
 
 ## 🧪 Testing
-
-Run the full automated unit test suite covering FastText inference, Clause Semantic Scoping, TRAI header checks, SMS parser pipelines, custom merchant rules, merchant analytics, budget calculations, and date utilities:
 
 ```bash
 flutter test
 ```
 
 Expected output:
+
 ```
 00:05 +202: All tests passed!
 ```
+
+Coverage includes: FastText inference, Clause Semantic Scoping, TRAI header validation, SMS parser pipelines, custom merchant rules, merchant analytics, budget calculation, and date utilities.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please open an issue first for major changes.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feat/amazing-feature`)
+3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
+4. Push to the branch (`git push origin feat/amazing-feature`)
+5. Open a Pull Request — make sure `flutter test` passes
 
 ---
 
 ## 📄 License
 
-This project is open-source and available under the MIT License.
+Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
+
+---
+
+&lt;p align="center"&gt;
+  Built with 💙 — your financial data stays yours.&lt;br/&gt;
+  ⭐ Star this repo if you find it useful!
+&lt;/p&gt;
