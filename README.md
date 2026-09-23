@@ -5,7 +5,7 @@
 [![Flutter](https://img.shields.io/badge/Flutter-%5E3.8.1-02569B?logo=flutter)](https://docs.flutter.dev)
 [![Release](https://img.shields.io/badge/release-v2.0.1%2B4-green)](https://github.com/allwin-antony/Expense_tracker/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-Android%2021%2B-brightgreen?logo=android)](https://developer.android.com)
+[![Platform](https://img.shields.io/badge/platform-Android%20API%2021%2B-brightgreen?logo=android)](https://developer.android.com)
 [![ML](https://img.shields.io/badge/ML-FastText%20%28pure%20Dart%29-orange)](#-on-device-fasttext-ml-engine)
 [![Offline](https://img.shields.io/badge/cloud-zero%20dependencies-blue)](#-privacy--architecture)
 [![Tests](https://img.shields.io/badge/tests-202%20passed-brightgreen)](#-testing)
@@ -19,7 +19,7 @@ Expense Tracker is a modern Android app that reads financial SMS, classifies the
 - [Why This Project](#-why-this-project)
 - [Key Features](#-key-features)
 - [Privacy & Architecture](#-privacy--architecture)
-- [System Architecture](#-system-architecture)
+- [System Architecture](#system-architecture)
 - [On-Device FastText ML Engine](#-on-device-fasttext-ml-engine)
 - [Technology Stack](#-technology-stack)
 - [Getting Started](#-getting-started)
@@ -43,31 +43,37 @@ Expense tracking apps usually fail for one of two reasons: manual entry is tedio
 ## 🔑 Key Features
 
 ### 🤖 Intelligent Classification
+
 - **Quantized on-device FastText classifier** (pure Dart): classifies each SMS as `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, or `INFORMATIONAL` in **&lt; 0.3 ms** per message.
 - **171.5 KB model** — 83.5% smaller than the unquantized version via uint8 Base64 quantization.
 - Loan ads, phishing, and OTP codes are filtered out automatically, so you're only ever notified about real transactions.
 
 ### 🛡️ Native 7-Layer SMS Defense Shield
-- A background Kotlin receiver (`SmsReceiver.kt`) with **100% regex-pipeline parity** to the Dart parser rejects spam *before* the Flutter engine even wakes up — **&lt; 0.1 ms** decision time.
+
+- A background Kotlin receiver (`SmsReceiver.kt`) with **100% regex-pipeline parity** to the Dart parser rejects spam _before_ the Flutter engine even wakes up — **&lt; 0.1 ms** decision time.
 - Verified TRAI sender-header checks ensure only genuine financial alerts get through.
 
 ### 🔔 Adaptive Notifications
+
 - Theme-aware floating **AppToast** banners with 250 ms fade/slide transitions and interactive **`UNDO`** pills.
 - Heads-up notifications with **`🔕 Exclude`** / **`🗑️ Delete`** actions, synced live to the UI without manual refresh.
 
 ### 🧾 Deep Transaction Parsing
-- **Multi-tier regex pipeline** with a `ClauseSemanticScoper` that isolates extraction to the transaction clause — no more confusing your *balance* with the *transaction amount*.
+
+- **Multi-tier regex pipeline** with a `ClauseSemanticScoper` that isolates extraction to the transaction clause — no more confusing your _balance_ with the _transaction amount_.
 - **Multi-currency**: ₹, $, £, € — handles international subscriptions (AWS, Netflix, OpenAI) and travel spend.
 - **712+ RBI-recognized banks** and **92+ NPCI UPI/AutoPay handles** in the training dataset (`@ybl`, `@okaxis`, `@okhdfcbank`, `@apl`, `@jupiteraxis`, …).
 
 ### 🛍️ Learns From You
-- **Custom merchant rules** — map *"Sharma Dhaba"* → *"Food & Dining"* once; the app auto-applies it forever, in both SMS syncs and manual entries. User rules take **100% precedence**.
+
+- **Custom merchant rules** — map _"Sharma Dhaba"_ → _"Food & Dining"_ once; the app auto-applies it forever, in both SMS syncs and manual entries. User rules take **100% precedence**.
 - **Custom categories** — create your own expense/income categories with colors and material icons, persisted in SQLite.
 
 ### 📊 Analytics & UX
+
 - `fl_chart`-powered **pie charts by category** and **top-merchant rankings** with 🥇🥈🥉 badges, order frequency, and spending share.
 - **Public Privacy Mode** — 1-tap eye toggle to mask balances (`+₹ ••••••`) on Home, Statistics, and History.
-- **History sync prompts** — detects shallow history (1–3 months) and offers one-tap expansion to *Last 90 Days / This Year / All Time*.
+- **History sync prompts** — detects shallow history (1–3 months) and offers one-tap expansion to _Last 90 Days / This Year / All Time_.
 - Detailed timestamps (`d MMM, h:mm a`) and date-tagged headers (`Today • 14 Aug`).
 
 ---
@@ -76,44 +82,44 @@ Expense tracking apps usually fail for one of two reasons: manual entry is tedio
 
 &gt; **Your money data never leaves your phone.**
 
-| Property | Guarantee |
-|---|---|
-| Cloud servers | ❌ None |
-| Remote APIs | ❌ None |
-| Native C++/Python binaries | ❌ None |
-| Third-party analytics | ❌ None |
-| Storage | 📁 Local SQLite (`sqflite`) only |
-| ML inference | 🧠 On-device, &lt; 0.3 ms per SMS |
+| Property                   | Guarantee                         |
+| -------------------------- | --------------------------------- |
+| Cloud servers              | ❌ None                           |
+| Remote APIs                | ❌ None                           |
+| Native C++/Python binaries | ❌ None                           |
+| Third-party analytics      | ❌ None                           |
+| Storage                    | 📁 Local SQLite (`sqflite`) only  |
+| ML inference               | 🧠 On-device, &lt; 0.3 ms per SMS |
 
 The entire pipeline — receipt, filtering, classification, parsing, categorization, storage — runs locally on the device.
 
 ---
 
-## 🏗️ System Architecture
+## System Architecture 🏗️
 
 ```mermaid
 flowchart TD
-    A[Incoming SMS Broadcast / Inbox Sync] --&gt; B[Native SmsReceiver.kt&lt;br/&gt;7-Layer Kotlin Defense Shield]
-    B --&gt;|OTP / Promo / Scam / Personal| C[✗ Reject — No Notification]
-    B --&gt;|Valid Financial SMS| D[MessageParserPipeline]
+    A[Incoming SMS Broadcast / Inbox Sync] --> B[Native SmsReceiver.kt<br/>7-Layer Kotlin Defense Shield]
+    B -->|OTP / Promo / Scam / Personal| C[✗ Reject — No Notification]
+    B -->|Valid Financial SMS| D[MessageParserPipeline]
 
-    D --&gt; E[FastTextEngine&lt;br/&gt;Quantized On-Device ML]
-    E --&gt;|Classifies Intent| F{Semantic Intent}
+    D --> E[FastTextEngine<br/>Quantized On-Device ML]
+    E -->|Classifies Intent| F{Semantic Intent}
 
-    F --&gt;|Genuine Transaction| G[AuthenticityValidator]
-    G --&gt; H[FinancialRegexPatterns Extraction]
-    H --&gt; I[MerchantCategorizer Engine]
-    I --&gt;|Check SQLite User Rules| J{Custom Rule Found?}
+    F -->|Genuine Transaction| G[AuthenticityValidator]
+    G --> H[FinancialRegexPatterns Extraction]
+    H --> I[MerchantCategorizer Engine]
+    I -->|Check SQLite User Rules| J{Custom Rule Found?}
 
-    J --&gt;|Yes| K[Apply User Category&lt;br/&gt;100% Confidence]
-    J --&gt;|No| L[Builtin Dictionary&lt;br/&gt;+ ML Heuristics]
+    J -->|Yes| K[Apply User Category<br/>100% Confidence]
+    J -->|No| L[Builtin Dictionary<br/>+ ML Heuristics]
 
-    K --&gt; M[(Local SQLite Database)]
-    L --&gt; M
+    K --> M[(Local SQLite Database)]
+    L --> M
 
-    M --&gt; N[Home Dashboard&lt;br/&gt;Real-Time Sync]
-    M --&gt; O[History + Sync Prompt]
-    M --&gt; P[Statistics & Merchant Rankings]
+    M --> N[Home Dashboard<br/>Real-Time Sync]
+    M --> O[History + Sync Prompt]
+    M --> P[Statistics & Merchant Rankings]
 ```
 
 ---
@@ -122,13 +128,13 @@ flowchart TD
 
 A **pure-Dart FastText implementation** — no Python, C++, or TensorFlow tooling required at inference or training time.
 
-| Spec | Value |
-|---|---|
-| Classes | `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, `INFORMATIONAL` |
-| Feature extraction | 3–6 char subword n-grams, FNV-1a 32-bit hashing into 8,192 buckets |
-| Quantization | uint8 Base64 with `embMin` / `embMax` scaling |
-| Model size | **171.5 KB** (down from 1.03 MB — **–83.5%**) |
-| Inference latency | **&lt; 0.3 ms** per message |
+| Spec               | Value                                                                      |
+| ------------------ | -------------------------------------------------------------------------- |
+| Classes            | `GENUINE_TRANSACTION`, `PROMOTIONAL_SPAM`, `OTP_SECURITY`, `INFORMATIONAL` |
+| Feature extraction | 3–6 char subword n-grams, FNV-1a 32-bit hashing into 8,192 buckets         |
+| Quantization       | uint8 Base64 with `embMin` / `embMax` scaling                              |
+| Model size         | **171.5 KB** (down from 1.03 MB — **–83.5%**)                              |
+| Inference latency  | **&lt; 0.3 ms** per message                                                |
 
 **Why FastText?** Subword n-grams make the model robust to merchant-name typos, concatenated UPI handles (`SHARMA.DHABA@ybl`), and unseen senders — exactly what real SMS traffic looks like.
 
@@ -136,15 +142,15 @@ A **pure-Dart FastText implementation** — no Python, C++, or TensorFlow toolin
 
 ## 🛠️ Technology Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Flutter `^3.8.1` |
-| Languages | Dart & Kotlin |
-| Database | `sqflite` — SQLite v5 schema with `custom_merchant_rules` |
-| Charts | `fl_chart` |
-| SMS access | `flutter_sms_inbox` + `permission_handler` |
-| Notifications | Custom `AppToast` overlay + `flutter_local_notifications` |
-| ML | Custom pure-Dart FastText (subword hashing + SGD embeddings + uint8 quantization) |
+| Layer         | Technology                                                                        |
+| ------------- | --------------------------------------------------------------------------------- |
+| Framework     | Flutter `^3.8.1`                                                                  |
+| Languages     | Dart & Kotlin                                                                     |
+| Database      | `sqflite` — SQLite v5 schema with `custom_merchant_rules`                         |
+| Charts        | `fl_chart`                                                                        |
+| SMS access    | `flutter_sms_inbox` + `permission_handler`                                        |
+| Notifications | Custom `AppToast` overlay + `flutter_local_notifications`                         |
+| ML            | Custom pure-Dart FastText (subword hashing + SGD embeddings + uint8 quantization) |
 
 ---
 
@@ -154,7 +160,7 @@ A **pure-Dart FastText implementation** — no Python, C++, or TensorFlow toolin
 
 - [Flutter SDK](https://docs.flutter.dev/get-started/install) `&gt;= 3.8.1`
 - Android Studio / VS Code with the Flutter extension
-- Android device or emulator (API 21+)
+- Android device or emulator running Android 5.0 (API level 21) or newer
 
 ### Setup
 
@@ -180,13 +186,13 @@ flutter run
 flutter build apk --release --split-per-abi
 ```
 
-| Target | Output |
-|---|---|
-| ARM 64-bit (`arm64-v8a`) | `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk` |
+| Target                     | Output                                                      |
+| -------------------------- | ----------------------------------------------------------- |
+| ARM 64-bit (`arm64-v8a`)   | `build/app/outputs/flutter-apk/app-arm64-v8a-release.apk`   |
 | ARM 32-bit (`armeabi-v7a`) | `build/app/outputs/flutter-apk/app-armeabi-v7a-release.apk` |
-| x86 64-bit (`x86_64`) | `build/app/outputs/flutter-apk/app-x86_64-release.apk` |
-| Universal APK | `build/app/outputs/flutter-apk/app-release.apk` |
-| App Bundle | `build/app/outputs/bundle/release/app-release.aab` |
+| x86 64-bit (`x86_64`)      | `build/app/outputs/flutter-apk/app-x86_64-release.apk`      |
+| Universal APK              | `build/app/outputs/flutter-apk/app-release.apk`             |
+| App Bundle                 | `build/app/outputs/bundle/release/app-release.aab`          |
 
 Release builds use Java 11 desugaring and icon tree-shaking for smaller binaries.
 
@@ -226,7 +232,7 @@ Distributed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
 
 ---
 
-&lt;p align="center"&gt;
-  Built with 💙 — your financial data stays yours.&lt;br/&gt;
+<p align="center">
+  Built with 💙 — your financial data stays yours.<br>
   ⭐ Star this repo if you find it useful!
-&lt;/p&gt;
+</p>
