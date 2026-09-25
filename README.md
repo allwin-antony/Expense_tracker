@@ -3,7 +3,7 @@
 **Privacy-first, on-device ML-powered expense tracking for Indian financial SMS (UPI • Cards • Banks)**
 
 [![Flutter](https://img.shields.io/badge/Flutter-%5E3.8.1-02569B?logo=flutter)](https://docs.flutter.dev)
-[![Release](https://img.shields.io/badge/release-v2.0.1%2B4-green)](https://github.com/allwin-antony/Expense_tracker/releases)
+[![Release](https://img.shields.io/badge/release-v2.1.0%2B5-green)](https://github.com/allwin-antony/Expense_tracker/releases)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-yellow.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Android%20API%2021%2B-brightgreen?logo=android)](https://developer.android.com)
 [![ML](https://img.shields.io/badge/ML-FastText%20%28pure%20Dart%29-orange)](#on-device-fasttext-ml-engine)
