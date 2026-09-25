@@ -18,6 +18,7 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 enum AnalyticsViewMode { category, merchant }
+enum AnalyticsFilter { expense, income, both }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
   DateTime _selectedMonth = DateTime.now();
@@ -25,11 +26,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Map<String, double> _expenseCategoryTotals = {};
   Map<String, double> _incomeCategoryTotals = {};
   List<MerchantSummary> _topMerchants = [];
+  Map<int, double> _dailyExpenseTotals = {};
+  Map<int, double> _dailyIncomeTotals = {};
   double _totalExpense = 0.0;
   double _totalIncome = 0.0;
   bool _isLoading = true;
+  AnalyticsFilter _filter = AnalyticsFilter.both;
   TransactionType _chartType = TransactionType.debit;
   AnalyticsViewMode _viewMode = AnalyticsViewMode.category;
+  int? _hoveredDay;
 
   @override
   void initState() {
@@ -72,6 +77,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       );
       final expense = await DatabaseService.instance.getTotalExpenseForMonth(_selectedMonth);
       final income = await DatabaseService.instance.getTotalIncomeForMonth(_selectedMonth);
+      final dailyExpense = await DatabaseService.instance.getDailyTotalsForMonth(
+        _selectedMonth,
+        type: TransactionType.debit,
+      );
+      final dailyIncome = await DatabaseService.instance.getDailyTotalsForMonth(
+        _selectedMonth,
+        type: TransactionType.credit,
+      );
 
       if (mounted) {
         setState(() {
@@ -81,6 +94,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           _topMerchants = topMerchants;
           _totalExpense = expense;
           _totalIncome = income;
+          _dailyExpenseTotals = dailyExpense;
+          _dailyIncomeTotals = dailyIncome;
           if (!silent) _isLoading = false;
         });
       }
@@ -113,6 +128,266 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   void _drillDownCategory(String category) {
     HapticFeedback.mediumImpact();
     widget.onCategorySelected?.call(category, _chartType, _selectedMonth);
+  }
+
+  Widget _buildDailyBarChart(bool isDark, ThemeData theme) {
+    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final expMax = _dailyExpenseTotals.values.isEmpty ? 0.0 : _dailyExpenseTotals.values.reduce((a, b) => a > b ? a : b);
+    final incMax = _dailyIncomeTotals.values.isEmpty ? 0.0 : _dailyIncomeTotals.values.reduce((a, b) => a > b ? a : b);
+    
+    double maxAmount = 0.0;
+    if (_filter == AnalyticsFilter.expense) {
+      maxAmount = expMax;
+    } else if (_filter == AnalyticsFilter.income) {
+      maxAmount = incMax;
+    } else {
+      for (int i = 1; i <= daysInMonth; i++) {
+        final total = (_dailyExpenseTotals[i] ?? 0.0) + (_dailyIncomeTotals[i] ?? 0.0);
+        if (total > maxAmount) maxAmount = total;
+      }
+    }
+
+    if (maxAmount == 0) maxAmount = 100;
+
+    final expColor = isDark ? const Color(0xFFFCA5A5) : const Color(0xFFEF4444);
+    final incColor = isDark ? const Color(0xFF6EE7B7) : const Color(0xFF10B981);
+
+    String title = 'Daily Cashflow';
+    if (_filter == AnalyticsFilter.expense) title = 'Daily Expenses';
+    if (_filter == AnalyticsFilter.income) title = 'Daily Income';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Tap on a bar for details',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: SegmentedButton<AnalyticsFilter>(
+              style: ButtonStyle(
+                visualDensity: VisualDensity.compact,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                side: WidgetStatePropertyAll(
+                  BorderSide(
+                    color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+                  ),
+                ),
+              ),
+              segments: const [
+                ButtonSegment(
+                  value: AnalyticsFilter.expense,
+                  label: Text('Expenses', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+                ButtonSegment(
+                  value: AnalyticsFilter.income,
+                  label: Text('Income', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+                ButtonSegment(
+                  value: AnalyticsFilter.both,
+                  label: Text('Both', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                ),
+              ],
+              selected: {_filter},
+              onSelectionChanged: (set) {
+                HapticFeedback.selectionClick();
+                setState(() {
+                  _filter = set.first;
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 180,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxAmount * 1.3,
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchCallback: (FlTouchEvent event, barTouchResponse) {
+                    setState(() {
+                      if (!event.isInterestedForInteractions ||
+                          barTouchResponse == null ||
+                          barTouchResponse.spot == null) {
+                        _hoveredDay = null;
+                        return;
+                      }
+                      _hoveredDay = barTouchResponse.spot!.touchedBarGroupIndex + 1;
+                    });
+                  },
+                  touchTooltipData: BarTouchTooltipData(
+                    tooltipBgColor: isDark ? const Color(0xFF334155) : const Color(0xFF1E293B),
+                    tooltipPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    tooltipMargin: 36,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final expAmt = _dailyExpenseTotals[group.x] ?? 0.0;
+                      final incAmt = _dailyIncomeTotals[group.x] ?? 0.0;
+                      
+                      List<TextSpan> spans = [];
+                      if (_filter == AnalyticsFilter.expense || _filter == AnalyticsFilter.both) {
+                        spans.add(TextSpan(
+                          text: 'Exp: ₹${NumberFormat('#,##,###').format(expAmt)}' + (_filter == AnalyticsFilter.both ? '\n' : ''),
+                          style: TextStyle(
+                            color: expColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ));
+                      }
+                      if (_filter == AnalyticsFilter.income || _filter == AnalyticsFilter.both) {
+                        spans.add(TextSpan(
+                          text: 'Inc: ₹${NumberFormat('#,##,###').format(incAmt)}',
+                          style: TextStyle(
+                            color: incColor,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 11,
+                          ),
+                        ));
+                      }
+
+                      return BarTooltipItem(
+                        'Day ${group.x}\n',
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                        children: spans,
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (value, meta) {
+                        final day = value.toInt();
+                        if (day % 5 != 0 && day != 1 && day != daysInMonth) {
+                          return const SizedBox();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: Text(
+                            day.toString(),
+                            style: TextStyle(
+                              color: isDark ? const Color(0xFF94A3B8) : const Color(0xFF64748B),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 10,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: false,
+                    ),
+                  ),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxAmount / 3 > 0 ? maxAmount / 3 : 1,
+                  getDrawingHorizontalLine: (value) => FlLine(
+                    color: isDark ? const Color(0xFF334155).withValues(alpha: 0.5) : const Color(0xFFE2E8F0).withValues(alpha: 0.5),
+                    strokeWidth: 1,
+                    dashArray: [4, 4],
+                  ),
+                ),
+                barGroups: List.generate(daysInMonth, (index) {
+                  final day = index + 1;
+                  final expAmt = _dailyExpenseTotals[day] ?? 0.0;
+                  final incAmt = _dailyIncomeTotals[day] ?? 0.0;
+                  final isHovered = _hoveredDay == day;
+                  
+                  List<BarChartRodData> rods = [];
+                  
+                  if (_filter == AnalyticsFilter.both) {
+                    rods.add(BarChartRodData(
+                      toY: expAmt + incAmt,
+                      width: daysInMonth > 30 ? 6 : 8,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      backDrawRodData: BackgroundBarChartRodData(
+                        show: true,
+                        toY: maxAmount * 1.3,
+                        color: isDark ? const Color(0xFF334155).withValues(alpha: 0.3) : const Color(0xFFF1F5F9),
+                      ),
+                      rodStackItems: [
+                        BarChartRodStackItem(0, incAmt, isHovered ? incColor : incColor.withValues(alpha: 0.6)),
+                        BarChartRodStackItem(incAmt, incAmt + expAmt, isHovered ? expColor : expColor.withValues(alpha: 0.6)),
+                      ],
+                    ));
+                  } else if (_filter == AnalyticsFilter.expense) {
+                    rods.add(BarChartRodData(
+                      toY: expAmt,
+                      color: isHovered ? expColor : expColor.withValues(alpha: 0.6),
+                      width: daysInMonth > 30 ? 6 : 8,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      backDrawRodData: BackgroundBarChartRodData(
+                        show: true,
+                        toY: maxAmount * 1.3,
+                        color: isDark ? const Color(0xFF334155).withValues(alpha: 0.3) : const Color(0xFFF1F5F9),
+                      ),
+                    ));
+                  } else {
+                    rods.add(BarChartRodData(
+                      toY: incAmt,
+                      color: isHovered ? incColor : incColor.withValues(alpha: 0.6),
+                      width: daysInMonth > 30 ? 6 : 8,
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
+                      backDrawRodData: BackgroundBarChartRodData(
+                        show: true,
+                        toY: maxAmount * 1.3,
+                        color: isDark ? const Color(0xFF334155).withValues(alpha: 0.3) : const Color(0xFFF1F5F9),
+                      ),
+                    ));
+                  }
+                  
+                  return BarChartGroupData(
+                    x: day,
+                    barsSpace: 1,
+                    barRods: rods,
+                  );
+                }),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -436,7 +711,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
+
+                    // ── Daily Expense/Income Bar Chart ────────────────────
+                    _buildDailyBarChart(isDark, theme),
+
+                    const SizedBox(height: 20),
 
                     // Breakdown Header + View Mode & Type Toggles
                     Row(

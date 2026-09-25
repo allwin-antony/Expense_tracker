@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:expense_tracker/parser/message_parser_pipeline.dart';
-import 'package:expense_tracker/parser/financial_regex_patterns.dart';
 
 void main() {
   test('Test specific promotional SMS', () {

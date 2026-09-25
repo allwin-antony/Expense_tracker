@@ -592,6 +592,24 @@ class DatabaseService {
     return await db.query('custom_categories');
   }
 
+  /// Daily totals for month: returns a map of {day: totalAmount} for the given type,
+  /// ignoring excluded transactions. Keys are 1-based day numbers.
+  Future<Map<int, double>> getDailyTotalsForMonth(
+    DateTime month, {
+    TransactionType type = TransactionType.debit,
+  }) async {
+    final payments = await getPaymentsByMonth(month);
+    final Map<int, double> dailyTotals = {};
+
+    for (final payment in payments.where((p) => p.type == type && !p.isExcludedFromBudget)) {
+      final effectiveDate = payment.budgetMonth ?? payment.date;
+      final day = effectiveDate.day;
+      dailyTotals[day] = (dailyTotals[day] ?? 0.0) + payment.amount;
+    }
+
+    return dailyTotals;
+  }
+
   /// Delete a custom category
   Future<void> deleteCustomCategory(String name) async {
     final db = await database;
