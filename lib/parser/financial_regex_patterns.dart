@@ -11,9 +11,9 @@ class FinancialRegexPatterns {
     caseSensitive: false,
   );
 
-  // Regex to reject failed or pending transactions (incomplete state)
+  // Regex to reject failed, pending, or future scheduled transactions (incomplete state)
   static final RegExp failedOrPendingFilterRegex = RegExp(
-    r'\b(?:failed|declined|unsuccessful|transaction\s*failed|payment\s*failed|is\s*pending|payment\s*is\s*pending|payment\s*pending|txn\s*failed)\b',
+    r'\b(?:failed|declined|unsuccessful|transaction\s*failed|payment\s*failed|is\s*pending|payment\s*is\s*pending|payment\s*pending|txn\s*failed|will\s*be\s*deducted|will\s*be\s*debited|will\s*be\s*charged|will\s*be\s*processed|will\s*be\s*withdrawn|scheduled\s*for|e-mandate|mandate\s*setup|setup\s*mandate)\b',
     caseSensitive: false,
   );
 
@@ -94,7 +94,7 @@ class FinancialRegexPatterns {
     RegExp(r'(?:received\s+from\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal|to\s+a/c)|[\.\,\;]|$)', caseSensitive: false),
     RegExp(r'(?:merchant\s*[:\-]\s*)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
     RegExp(r'(?:pur(?:chase)?\s+at\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
-    RegExp(r'(?:to|at|towards|by|for)\s+([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal|upi|from|a/c|thru|dated|worth|is\s+credited)|[\.\,\;]|$)', caseSensitive: false),
+    RegExp(r'(?:to|at|towards|by|for)\s+([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal|upi|from|a/c|thru|dated|worth|is\s+credited|mandate|umn|maintain)|[\.\,\;]|$)', caseSensitive: false),
     RegExp(r'(?:debited\s+for\s+)([A-Za-z0-9\s._\-&@*]+?)(?:\s+(?:on|ref|via|using|avl|bal)|[\.\,\;]|$)', caseSensitive: false),
   ];
 

@@ -1,9 +1,9 @@
 name: expense_tracker
-description: "A Flutter Application to track expenses"
+description: "An Android Application to track expenses"
 
 publish_to: "none"
 
-version: 2.1.0+5
+version: 2.1.1+6
 
 environment:
   sdk: ^3.8.1

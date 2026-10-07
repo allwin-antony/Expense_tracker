@@ -137,11 +137,27 @@ class SmsSyncService {
   static final SmsSyncService instance = SmsSyncService._();
   SmsSyncService._();
 
-  static const EventChannel _smsEventChannel =
-      EventChannel('com.allwin.expensetracker/sms_stream');
-  static const MethodChannel _smsMethodChannel = 
-      MethodChannel('com.allwin.expensetracker/sms_queue');
+  static const EventChannel _smsEventChannel = EventChannel(
+    'com.allwin.expensetracker/sms_stream',
+  );
+  static const MethodChannel _smsMethodChannel = MethodChannel(
+    'com.allwin.expensetracker/sms_queue',
+  );
   StreamSubscription? _liveSmsSubscription;
+
+  Future<void> _syncLock = Future.value();
+
+  Future<T> _withLock<T>(Future<T> Function() action) async {
+    final previous = _syncLock;
+    final completer = Completer<void>();
+    _syncLock = completer.future;
+    try {
+      await previous;
+      return await action();
+    } finally {
+      completer.complete();
+    }
+  }
 
   /// Request SMS read and receive permissions gracefully
   Future<bool> requestPermissions() async {
@@ -177,13 +193,16 @@ class SmsSyncService {
   }
 
   /// Top-level function executed in a background isolate for zero UI lag
-  static List<Map<String, dynamic>> _parseSmsBatch(List<Map<String, dynamic>> rawItems) {
+  static List<Map<String, dynamic>> _parseSmsBatch(
+    List<Map<String, dynamic>> rawItems,
+  ) {
     final List<Map<String, dynamic>> parsedResults = [];
 
     for (final item in rawItems) {
       final body = item['body'] as String? ?? '';
       final sender = item['sender'] as String?;
-      final timestamp = item['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
+      final timestamp =
+          item['timestamp'] as int? ?? DateTime.now().millisecondsSinceEpoch;
       final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
 
       if (body.isEmpty) continue;
@@ -214,7 +233,9 @@ class SmsSyncService {
     try {
       final hasPerm = await requestPermissions();
       if (!hasPerm) {
-        return SyncResult.failure('SMS permission is required to auto-sync transactions.');
+        return SyncResult.failure(
+          'SMS permission is required to auto-sync transactions.',
+        );
       }
 
       onProgress?.call(0.1, 'Reading SMS inbox...');
@@ -226,7 +247,11 @@ class SmsSyncService {
       );
 
       if (messages.isEmpty) {
-        return SyncResult(isSuccess: true, totalSmsRead: 0, timeRangeLabel: timeRangeLabel);
+        return SyncResult(
+          isSuccess: true,
+          totalSmsRead: 0,
+          timeRangeLabel: timeRangeLabel,
+        );
       }
 
       // Filter messages strictly within the target range and only from legitimate TRAI headers (reject personal numbers)
@@ -235,10 +260,14 @@ class SmsSyncService {
         rangeFiltered = messages.where((msg) {
           final msgDate = msg.date;
           if (msgDate == null) return false;
-          if (startDate != null && msgDate.isBefore(startDate.subtract(const Duration(seconds: 1)))) {
+          if (startDate != null &&
+              msgDate.isBefore(
+                startDate.subtract(const Duration(seconds: 1)),
+              )) {
             return false;
           }
-          if (endDate != null && msgDate.isAfter(endDate.add(const Duration(seconds: 1)))) {
+          if (endDate != null &&
+              msgDate.isAfter(endDate.add(const Duration(seconds: 1)))) {
             return false;
           }
           return true;
@@ -248,17 +277,28 @@ class SmsSyncService {
       }
 
       final filteredSms = rangeFiltered
-          .where((msg) => FinancialRegexPatterns.isLegitimateTraiHeader(msg.address))
+          .where(
+            (msg) => FinancialRegexPatterns.isLegitimateTraiHeader(msg.address),
+          )
           .toList();
 
-      onProgress?.call(0.4, 'Parsing ${filteredSms.length} messages in background isolate...');
+      onProgress?.call(
+        0.4,
+        'Parsing ${filteredSms.length} messages in background isolate...',
+      );
 
       // Prepare lightweight data map for background isolate
-      final rawList = filteredSms.map((msg) => {
-            'body': msg.body ?? '',
-            'timestamp': msg.date?.millisecondsSinceEpoch ?? DateTime.now().millisecondsSinceEpoch,
-            'sender': msg.address,
-          }).toList();
+      final rawList = filteredSms
+          .map(
+            (msg) => {
+              'body': msg.body ?? '',
+              'timestamp':
+                  msg.date?.millisecondsSinceEpoch ??
+                  DateTime.now().millisecondsSinceEpoch,
+              'sender': msg.address,
+            },
+          )
+          .toList();
 
       // Run parsing in background Dart Isolate to eliminate UI frame drops
       final List<Map<String, dynamic>> parsedMaps = await compute(
@@ -268,71 +308,77 @@ class SmsSyncService {
 
       onProgress?.call(0.7, 'Deduplicating against saved transactions...');
 
-      // Fetch existing payments in DB to prevent duplicates
-      final existingPayments = await DatabaseService.instance.getAllPayments();
-      final existingRawMessages = existingPayments
-          .map((p) => p.rawMessage?.trim())
-          .where((m) => m != null && m.isNotEmpty)
-          .toSet();
+      return await _withLock(() async {
+        // Fetch existing payments in DB to prevent duplicates
+        final existingPayments = await DatabaseService.instance
+            .getAllPayments();
+        final existingRawMessages = existingPayments
+            .map((p) => p.rawMessage?.trim())
+            .where((m) => m != null && m.isNotEmpty)
+            .toSet();
 
-      int addedCount = 0;
-      int duplicatesCount = 0;
-      double totalExpense = 0.0;
-      double totalIncome = 0.0;
+        int addedCount = 0;
+        int duplicatesCount = 0;
+        double totalExpense = 0.0;
+        double totalIncome = 0.0;
 
-      final List<Payment> newPaymentsToInsert = [];
+        final List<Payment> newPaymentsToInsert = [];
 
-      for (final map in parsedMaps) {
-        final payment = Payment.fromMap(map);
-        final raw = payment.rawMessage?.trim();
+        for (final map in parsedMaps) {
+          final payment = Payment.fromMap(map);
+          final raw = payment.rawMessage?.trim();
 
-        // Deduplication Check
-        bool isDuplicate = false;
-        if (raw != null && existingRawMessages.contains(raw)) {
-          isDuplicate = true;
-        } else {
-          // Check timestamp + amount match within 120 seconds
-          isDuplicate = existingPayments.any((existing) {
-            final diff = existing.date.difference(payment.date).inSeconds.abs();
-            return diff < 120 &&
-                (existing.amount - payment.amount).abs() < 0.01 &&
-                existing.type == payment.type;
-          });
-        }
-
-        if (isDuplicate) {
-          duplicatesCount++;
-        } else {
-          newPaymentsToInsert.add(payment);
-          existingPayments.add(payment);
-          if (raw != null) existingRawMessages.add(raw);
-
-          addedCount++;
-          if (payment.type == TransactionType.debit) {
-            totalExpense += payment.amount;
+          // Deduplication Check
+          bool isDuplicate = false;
+          if (raw != null && existingRawMessages.contains(raw)) {
+            isDuplicate = true;
           } else {
-            totalIncome += payment.amount;
+            // Check timestamp + amount match within 120 seconds
+            isDuplicate = existingPayments.any((existing) {
+              final diff = existing.date
+                  .difference(payment.date)
+                  .inSeconds
+                  .abs();
+              return diff < 120 &&
+                  (existing.amount - payment.amount).abs() < 0.01 &&
+                  existing.type == payment.type;
+            });
+          }
+
+          if (isDuplicate) {
+            duplicatesCount++;
+          } else {
+            newPaymentsToInsert.add(payment);
+            existingPayments.add(payment);
+            if (raw != null) existingRawMessages.add(raw);
+
+            addedCount++;
+            if (payment.type == TransactionType.debit) {
+              totalExpense += payment.amount;
+            } else {
+              totalIncome += payment.amount;
+            }
           }
         }
-      }
 
-      // Batch insert into SQLite atomically in a single transaction (no UI flicker)
-      if (newPaymentsToInsert.isNotEmpty) {
-        await DatabaseService.instance.addPaymentsBatch(newPaymentsToInsert);
-      }
+        // Batch insert into SQLite atomically in a single transaction (no UI flicker)
+        if (newPaymentsToInsert.isNotEmpty) {
+          await DatabaseService.instance.addPaymentsBatch(newPaymentsToInsert);
+        }
 
-      onProgress?.call(1.0, 'Sync complete!');
+        onProgress?.call(1.0, 'Sync complete!');
 
-      return SyncResult(
-        isSuccess: true,
-        totalSmsRead: filteredSms.length,
-        financialSmsFound: parsedMaps.length,
-        newTransactionsAdded: addedCount,
-        duplicatesSkipped: duplicatesCount,
-        totalExpenseAdded: totalExpense,
-        totalIncomeAdded: totalIncome,
-        timeRangeLabel: timeRangeLabel,
-      );
+        return SyncResult(
+          isSuccess: true,
+          totalSmsRead: filteredSms.length,
+          financialSmsFound: parsedMaps.length,
+          newTransactionsAdded: addedCount,
+          duplicatesSkipped: duplicatesCount,
+          totalExpenseAdded: totalExpense,
+          totalIncomeAdded: totalIncome,
+          timeRangeLabel: timeRangeLabel,
+        );
+      });
     } catch (e) {
       return SyncResult.failure('Error syncing SMS: $e');
     }
@@ -357,7 +403,9 @@ class SmsSyncService {
   }
 
   /// Starts listening to real-time incoming SMS via native Android EventChannel
-  Future<void> startLiveSmsListener({Function(Payment)? onPaymentCaptured}) async {
+  Future<void> startLiveSmsListener({
+    Function(Payment)? onPaymentCaptured,
+  }) async {
     _liveSmsSubscription?.cancel();
 
     final isGranted = await hasPermission();
@@ -369,7 +417,9 @@ class SmsSyncService {
           if (event is Map) {
             final body = event['body'] as String? ?? '';
             final sender = event['sender'] as String?;
-            final timestamp = event['timestamp'] as num? ?? DateTime.now().millisecondsSinceEpoch;
+            final timestamp =
+                event['timestamp'] as num? ??
+                DateTime.now().millisecondsSinceEpoch;
             final date = DateTime.fromMillisecondsSinceEpoch(timestamp.toInt());
 
             if (body.isEmpty) return;
@@ -389,18 +439,26 @@ class SmsSyncService {
               final payment = parseResult.payment!.copyWith(date: date);
 
               // Check if already in DB
-              final existing = await DatabaseService.instance.getPaymentsByMonth(date);
-              final isDup = existing.any((e) =>
-                  e.rawMessage?.trim() == body.trim() ||
-                  ((e.amount - payment.amount).abs() < 0.01 &&
-                      e.date.difference(payment.date).inSeconds.abs() < 60));
+              await _withLock(() async {
+                final existing = await DatabaseService.instance
+                    .getPaymentsByMonth(date);
+                final isDup = existing.any(
+                  (e) =>
+                      e.rawMessage?.trim() == body.trim() ||
+                      ((e.amount - payment.amount).abs() < 0.01 &&
+                          e.date.difference(payment.date).inSeconds.abs() < 60),
+                );
 
-              if (!isDup) {
-                final insertedId = await DatabaseService.instance.addPayment(payment);
-                final savedPayment = payment.copyWith(id: insertedId);
-                onPaymentCaptured?.call(savedPayment);
-                await NotificationService.instance.showTransactionCapturedNotification(savedPayment);
-              }
+                if (!isDup) {
+                  final insertedId = await DatabaseService.instance.addPayment(
+                    payment,
+                  );
+                  final savedPayment = payment.copyWith(id: insertedId);
+                  onPaymentCaptured?.call(savedPayment);
+                  await NotificationService.instance
+                      .showTransactionCapturedNotification(savedPayment);
+                }
+              });
             }
           }
         },
@@ -414,15 +472,21 @@ class SmsSyncService {
   }
 
   /// Processes any SMS messages that were queued natively in the background while the Flutter app was asleep
-  Future<void> processPendingSmsQueue({Function(Payment)? onPaymentCaptured}) async {
+  Future<void> processPendingSmsQueue({
+    Function(Payment)? onPaymentCaptured,
+  }) async {
     try {
-      final String? queueString = await _smsMethodChannel.invokeMethod('getAndClearPendingSms');
+      final String? queueString = await _smsMethodChannel.invokeMethod(
+        'getAndClearPendingSms',
+      );
       if (queueString == null || queueString == '[]') return;
 
       final List<dynamic> queue = jsonDecode(queueString);
       if (queue.isEmpty) return;
 
-      debugPrint('Processing ${queue.length} pending SMS from background queue...');
+      debugPrint(
+        'Processing ${queue.length} pending SMS from background queue...',
+      );
 
       // Convert queue items to the format expected by our batch parser
       final List<Map<String, dynamic>> rawList = [];
@@ -430,7 +494,8 @@ class SmsSyncService {
         if (item is Map) {
           rawList.add({
             'body': item['body'] ?? '',
-            'timestamp': item['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
+            'timestamp':
+                item['timestamp'] ?? DateTime.now().millisecondsSinceEpoch,
             'sender': item['sender'] ?? '',
           });
         }
@@ -444,44 +509,52 @@ class SmsSyncService {
 
       if (parsedMaps.isEmpty) return;
 
-      final existingPayments = await DatabaseService.instance.getAllPayments();
-      final existingRawMessages = existingPayments
-          .map((p) => p.rawMessage?.trim())
-          .where((m) => m != null && m.isNotEmpty)
-          .toSet();
+      await _withLock(() async {
+        final existingPayments = await DatabaseService.instance
+            .getAllPayments();
+        final existingRawMessages = existingPayments
+            .map((p) => p.rawMessage?.trim())
+            .where((m) => m != null && m.isNotEmpty)
+            .toSet();
 
-      final List<Payment> newPaymentsToInsert = [];
+        final List<Payment> newPaymentsToInsert = [];
 
-      for (final map in parsedMaps) {
-        final payment = Payment.fromMap(map);
-        final raw = payment.rawMessage?.trim();
+        for (final map in parsedMaps) {
+          final payment = Payment.fromMap(map);
+          final raw = payment.rawMessage?.trim();
 
-        // Deduplication Check
-        bool isDuplicate = false;
-        if (raw != null && existingRawMessages.contains(raw)) {
-          isDuplicate = true;
-        } else {
-          isDuplicate = existingPayments.any((existing) {
-            final diff = existing.date.difference(payment.date).inSeconds.abs();
-            return diff < 120 &&
-                (existing.amount - payment.amount).abs() < 0.01 &&
-                existing.type == payment.type;
-          });
+          // Deduplication Check
+          bool isDuplicate = false;
+          if (raw != null && existingRawMessages.contains(raw)) {
+            isDuplicate = true;
+          } else {
+            isDuplicate = existingPayments.any((existing) {
+              final diff = existing.date
+                  .difference(payment.date)
+                  .inSeconds
+                  .abs();
+              return diff < 120 &&
+                  (existing.amount - payment.amount).abs() < 0.01 &&
+                  existing.type == payment.type;
+            });
+          }
+
+          if (!isDuplicate) {
+            newPaymentsToInsert.add(payment);
+            existingPayments.add(payment);
+            if (raw != null) existingRawMessages.add(raw);
+
+            onPaymentCaptured?.call(payment);
+          }
         }
 
-        if (!isDuplicate) {
-          newPaymentsToInsert.add(payment);
-          existingPayments.add(payment);
-          if (raw != null) existingRawMessages.add(raw);
-          
-          onPaymentCaptured?.call(payment);
+        if (newPaymentsToInsert.isNotEmpty) {
+          await DatabaseService.instance.addPaymentsBatch(newPaymentsToInsert);
+          debugPrint(
+            'Added ${newPaymentsToInsert.length} new payments from pending SMS queue.',
+          );
         }
-      }
-
-      if (newPaymentsToInsert.isNotEmpty) {
-        await DatabaseService.instance.addPaymentsBatch(newPaymentsToInsert);
-        debugPrint('Added ${newPaymentsToInsert.length} new payments from pending SMS queue.');
-      }
+      });
     } catch (e) {
       debugPrint('Error processing pending SMS queue: $e');
     }
